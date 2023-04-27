@@ -45,18 +45,23 @@ def _get_bitmap_with_row_connectivity_segments(bitmap):
         segment_num = 1
         j = 0
         while j < (bitmap_length - 1):
-            if bitmap_result[i][j] == 1 and bitmap_result[i][j + 1] == 1:
-                bitmap_result[i][j] = segment_num
-                bitmap_result[i][j + 1] = segment_num
-                k = j + 2
-                while (k < bitmap_length) and (bitmap_result[i][k] == 1):
-                    bitmap_result[i][k] = segment_num
-                    k += 1
+            if bitmap_result[i][j] == 1:
+                if bitmap_result[i][j + 1] == 1:
+                    bitmap_result[i][j] = segment_num
+                    bitmap_result[i][j + 1] = segment_num
+                    k = j + 2
+                    while (k < bitmap_length) and (bitmap_result[i][k] == 1):
+                        bitmap_result[i][k] = segment_num
+                        k += 1
 
-                segment_num += 1
-                j = k + 1
-
-            j += 1
+                    segment_num += 1
+                    j = k + 1
+                else:
+                    bitmap_result[i][j] = segment_num
+                    segment_num += 1
+                    j += 2
+            else:
+                j += 1
 
     return bitmap_result
 
@@ -164,7 +169,7 @@ def tests():
     ctx.set_colorkey(None)
     ctx.fill((255, 255, 255))
 
-    img_path = 'images/9.jpg'
+    img_path = 'images/3.jpg'
     img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
     cell_size = 10
 
@@ -198,7 +203,7 @@ def tests():
     def test_for_get_clusters_from_connectivity_segments_list(clusters_):
         for i in range(len(clusters_)):
             for segment_info in clusters[i]:
-                color = (50 * i, 50 * i, 50 * i)
+                color = (25 * i, 25 * i, 25 * i)
                 left = segment_info[1] * cell_size
                 top = segment_info[0] * cell_size
                 width = (segment_info[2] - segment_info[1]) * cell_size + cell_size
