@@ -37,7 +37,7 @@ def get_bitmap(thresholds_map, threshold):
     return bitmap
 
 
-def _get_bitmap_with_row_connectivity_segments(bitmap):
+def get_bitmap_with_row_connectivity_segments(bitmap):
     bitmap_result = [row[:] for row in bitmap]
     bitmap_length = len(bitmap_result)
 
@@ -67,7 +67,7 @@ def _get_bitmap_with_row_connectivity_segments(bitmap):
 
 
 def get_connectivity_segments_list(bitmap):
-    bitmap_ = _get_bitmap_with_row_connectivity_segments(bitmap)
+    bitmap_ = get_bitmap_with_row_connectivity_segments(bitmap)
     bitmap_length = len(bitmap_)
     connectivity_segments = [None for _ in range(bitmap_length)]
     connectivity_segments_list = []
@@ -178,7 +178,7 @@ def tests():
     threshold_coefficient = 1
     threshold = img.mean(axis=(0, 1)) // threshold_coefficient
     bitmap = get_bitmap(thresholds_map, threshold)
-    _bitmap_with_connectivity_segments = _get_bitmap_with_row_connectivity_segments(bitmap)
+    bitmap_with_connectivity_segments = get_bitmap_with_row_connectivity_segments(bitmap)
 
     def test_for_get_thresholds_map(thresholds_map_):
         for i in range(len(thresholds_map_)):
@@ -212,7 +212,7 @@ def tests():
 
     # test_for_get_thresholds_map(thresholds_map)
     # test_for_get_bitmap(bitmap)
-    test_for_get_bitmap_with_row_connectivity_segments(_bitmap_with_connectivity_segments)
+    test_for_get_bitmap_with_row_connectivity_segments(bitmap_with_connectivity_segments)
     connectivity_segments_list = get_connectivity_segments_list(bitmap)
     # print(connectivity_segments_list)
     clusters = get_clusters_from_connectivity_segments_list(connectivity_segments_list)
