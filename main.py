@@ -221,9 +221,9 @@ def tests():
     ctx.set_colorkey(None)
     ctx.fill((255, 255, 255))
 
-    img_path = 'images/3.jpg'
+    img_path = 'images/2.jpg'
     img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-    cell_size = 10
+    cell_size = 5
 
     thresholds_map = get_thresholds_map(img, cell_size)
 
@@ -245,10 +245,18 @@ def tests():
                 pygame.draw.rect(ctx, color, (j * cell_size, i * cell_size, cell_size, cell_size))
 
     def test_for_get_bitmap_with_segments_info(bitmap_with_segments_info_):
+        colors_count = 0
+        for i in range(len(bitmap_with_segments_info_)):
+            cc = len(np.unique(bitmap_with_segments_info_[i]))
+            if cc > colors_count:
+                colors_count = cc
+
+        colors = [(255, 255, 255)]
+        for _ in range(colors_count):
+            colors.append(np.random.choice(range(255), size=3))
+
         for i in range(len(bitmap_with_segments_info_)):
             for j in range(len(bitmap_with_segments_info_)):
-                colors = (
-                    (255, 255, 255), (255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (0, 255, 255), (255, 0, 255))
                 color_index = bitmap_with_segments_info_[i][j]
                 pygame.draw.rect(ctx, colors[color_index], (j * cell_size, i * cell_size, cell_size, cell_size))
 
