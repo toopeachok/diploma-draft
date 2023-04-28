@@ -66,7 +66,7 @@ def _get_bitmap_with_segments_info(bitmap):
     return bitmap_result
 
 
-def get_segments_map(bitmap):
+def _get_segments_map(bitmap):
     bitmap_ = _get_bitmap_with_segments_info(bitmap)
     segments_map = []
 
@@ -77,14 +77,132 @@ def get_segments_map(bitmap):
         for segment in segments:
             segment_info = {}
             ii = np.where(np.array(bitmap_[i]) == segment)[0]
-            segment_info['indexes'] = (ii.min(), ii.max())
-            segment_info['length'] = ii.max() - ii.min() + 1
+            segment_info['idx'] = (ii.min(), ii.max())
+            segment_info['len'] = ii.max() - ii.min() + 1
             segment_info['mid'] = (ii.max() + ii.min()) // 2
             segments_dict[segment] = segment_info
 
         segments_map.append(segments_dict)
 
     return segments_map
+
+
+def _get_longest_segment(segments_map_row):
+    _segment = None
+    if len(segments_map_row.keys()) != 0:
+        _temp = 0
+        for _key in segments_map_row.keys():
+            _segment_len = segments_map_row[_key]['len']
+            if _segment_len > _temp:
+                _temp = _segment_len
+                _segment = _key
+
+    return _segment
+
+
+def _get_suitable_segments(segments_info, segments_map_row):
+    _suitable_segments = []
+    li_c, ri_c = segments_info['idx']
+
+    for key in segments_map_row.keys():
+        li_n, ri_n = segments_map_row[key]['idx']
+        if ~((li_c < li_n and ri_c < li_n) or li_c > ri_n):
+            _suitable_segments.append(key)
+
+    if len(_suitable_segments) == 0:
+        return None
+    else:
+        return _suitable_segments
+
+
+def _get_next_rows(segments_map, current_row_index):
+    next_rows = []
+
+    if current_row_index > (len(segments_map) - 1):
+        raise ValueError('current_row_index > (len(segments_map) - 1)')
+
+    for i in range(current_row_index + 1, len(segments_map)):
+        _next_row = segments_map[i]
+        if len(_next_row.keys()) != 0:
+            next_rows.append((i, _next_row))
+        else:
+            break
+
+    if len(next_rows) != 0:
+        return next_rows
+    else:
+        return None
+
+
+def get_path_clusters(bitmap):
+    path_clusters = []
+    segments_map = _get_segments_map(bitmap)
+
+    for idx, current_row in enumerate(segments_map):
+        current_row = (idx, current_row)
+        segment = _get_longest_segment(current_row[1])
+
+        if segment is not None:
+            segments_to_cluster = [
+                {
+                    'row_idx': idx,
+                    'segment_idx': current_row[1][segment]['idx'],
+                    'segment': segment
+                }
+            ]
+            next_rows = _get_next_rows(segments_map, idx)
+
+            if next_rows is not None:
+                for next_row in next_rows:
+                    idx_n = next_row[0]
+
+                    suitable_segments = _get_suitable_segments(current_row[1][segment], next_row[1])
+
+                    if suitable_segments is not None:
+                        suitable_segment = suitable_segments[0]
+                        # Find the nearest segment
+                        prev_dist = 10e6
+                        for suit_seg in suitable_segments:
+                            dist = abs(current_row[1][segment]['mid'] - next_row[1][suit_seg]['mid'])
+                            if dist < prev_dist:
+                                suitable_segment = suit_seg
+
+                            segments_to_cluster.append({
+                                'row_idx': idx_n,
+                                'segment_idx': next_row[1][suitable_segment]['idx'],
+                                'segment': suitable_segment
+                            })
+
+                        print(f'idx_c: {idx}, segment: {segment}')
+                        print(f'idx_n: {idx_n}, suitable_segment: {suitable_segment}')
+                        current_row = next_row
+                        segment = suitable_segment
+
+                    else:
+                        break
+
+            to_delete = {}
+            rows_idx = []
+            for seg_item in segments_to_cluster:
+                rows_idx.append(seg_item['row_idx'])
+
+            rows_idx = np.unique(rows_idx)
+            for i in rows_idx:
+                delete_list = []
+                for seg_item in segments_to_cluster:
+                    if i == seg_item['row_idx']:
+                        delete_list.append(seg_item['segment'])
+
+                to_delete[i] = delete_list
+
+            for i in range(len(segments_map)):
+                delete_list = to_delete.get(i, [])
+                for x in delete_list:
+                    del segments_map[i][x]
+
+            path_clusters.append(segments_to_cluster)
+
+    return path_clusters, segments_map
 
 
 def tests():
@@ -96,7 +214,7 @@ def tests():
     ctx.set_colorkey(None)
     ctx.fill((255, 255, 255))
 
-    img_path = 'images/9.jpg'
+    img_path = 'images/3.jpg'
     img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
     cell_size = 10
 
@@ -127,12 +245,25 @@ def tests():
                 color_index = bitmap_with_segments_info_[i][j]
                 pygame.draw.rect(ctx, colors[color_index], (j * cell_size, i * cell_size, cell_size, cell_size))
 
+    def test_for_get_path_clusters(path_clusters_):
+        for idx, path_cluster in enumerate(path_clusters_):
+            color = np.random.choice(range(255), size=3)
+
+            for segment in path_cluster:
+                left = segment['segment_idx'][0] * cell_size
+                top = segment['row_idx'] * cell_size
+                width = (segment['segment_idx'][1] - segment['segment_idx'][0] + 1) * cell_size
+                height = cell_size
+                pygame.draw.rect(ctx, color, (left, top, width, height))
+
     # test_for_get_thresholds_map(thresholds_map)
     # test_for_get_bitmap(bitmap)
     # test_for_get_bitmap_with_segments_info(bitmap_with_segments_info)
 
-    segments_map = get_segments_map(bitmap)
-    print(segments_map)
+    segments_map = _get_segments_map(bitmap)
+    path_clusters, _segments_map_ = get_path_clusters(bitmap)
+
+    test_for_get_path_clusters(path_clusters)
 
     while True:
         for event in pygame.event.get():
