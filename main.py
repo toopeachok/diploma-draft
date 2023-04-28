@@ -165,6 +165,7 @@ def get_path_clusters(bitmap):
                         for suit_seg in suitable_segments:
                             dist = abs(current_row[1][segment]['mid'] - next_row[1][suit_seg]['mid'])
                             if dist < prev_dist:
+                                prev_dist = dist
                                 suitable_segment = suit_seg
 
                             segments_to_cluster.append({
@@ -198,7 +199,8 @@ def get_path_clusters(bitmap):
             for i in range(len(segments_map)):
                 delete_list = to_delete.get(i, [])
                 for x in delete_list:
-                    del segments_map[i][x]
+                    if x in segments_map[i]:
+                        del segments_map[i][x]
 
             path_clusters.append(segments_to_cluster)
 
@@ -214,7 +216,7 @@ def tests():
     ctx.set_colorkey(None)
     ctx.fill((255, 255, 255))
 
-    img_path = 'images/3.jpg'
+    img_path = 'images/9.jpg'
     img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
     cell_size = 10
 
