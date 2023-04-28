@@ -134,6 +134,24 @@ def _get_next_rows(segments_map, current_row_index):
         return None
 
 
+def _get_segments_to_delete(segments_to_cluster):
+    to_delete = {}
+    rows_idx = []
+    for seg_item in segments_to_cluster:
+        rows_idx.append(seg_item['row_idx'])
+
+    rows_idx = np.unique(rows_idx)
+    for i in rows_idx:
+        delete_list = []
+        for seg_item in segments_to_cluster:
+            if i == seg_item['row_idx']:
+                delete_list.append(seg_item['segment'])
+
+        to_delete[i] = delete_list
+
+    return to_delete
+
+
 def get_path_clusters(bitmap):
     path_clusters = []
     segments_map = _get_segments_map(bitmap)
@@ -168,40 +186,27 @@ def get_path_clusters(bitmap):
                                 prev_dist = dist
                                 suitable_segment = suit_seg
 
-                            segments_to_cluster.append({
-                                'row_idx': idx_n,
-                                'segment_idx': next_row[1][suitable_segment]['idx'],
-                                'segment': suitable_segment
-                            })
+                        segments_to_cluster.append({
+                            'row_idx': idx_n,
+                            'segment_idx': next_row[1][suitable_segment]['idx'],
+                            'segment': suitable_segment
+                        })
 
-                        print(f'idx_c: {idx}, segment: {segment}')
-                        print(f'idx_n: {idx_n}, suitable_segment: {suitable_segment}')
                         current_row = next_row
                         segment = suitable_segment
 
                     else:
                         break
 
-            to_delete = {}
-            rows_idx = []
-            for seg_item in segments_to_cluster:
-                rows_idx.append(seg_item['row_idx'])
-
-            rows_idx = np.unique(rows_idx)
-            for i in rows_idx:
-                delete_list = []
-                for seg_item in segments_to_cluster:
-                    if i == seg_item['row_idx']:
-                        delete_list.append(seg_item['segment'])
-
-                to_delete[i] = delete_list
-
+            # Delete processed segments from segments map
+            to_delete = _get_segments_to_delete(segments_to_cluster)
             for i in range(len(segments_map)):
                 delete_list = to_delete.get(i, [])
                 for x in delete_list:
                     if x in segments_map[i]:
                         del segments_map[i][x]
 
+            # Add segments cluster to the path clusters
             path_clusters.append(segments_to_cluster)
 
     return path_clusters, segments_map
@@ -216,7 +221,7 @@ def tests():
     ctx.set_colorkey(None)
     ctx.fill((255, 255, 255))
 
-    img_path = 'images/9.jpg'
+    img_path = 'images/3.jpg'
     img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
     cell_size = 10
 
