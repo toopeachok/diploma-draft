@@ -154,26 +154,26 @@ def draw_fill_path(ctx, squares_grid, width, gap, img):
         # random_threshold = int.from_bytes(os.urandom(8), byteorder="big") / ((1 << 64) - 1)
         random_threshold = thresholds[i]
         # print(random_threshold)
-        if random_threshold >= 140:
-            hilbert_curves.append(None)
-        else:
-            dots = get_hilbert_dots(gap, curve_order * 1, squares_grid[i][0])
-            draw_hilbert_curve(ctx, dots, curve_order * 1)
-            hilbert_curves.append(dots)
-        # if random_threshold <= 180:
-        #     dots = get_hilbert_dots(gap, curve_order * 1, squares_grid[i][0])
-        #     draw_hilbert_curve(ctx, dots, curve_order * 1)
-        #     hilbert_curves.append(dots)
-        # elif random_threshold <= 210:
-        #     dots = get_hilbert_dots(gap, curve_order * 1, squares_grid[i][0])
-        #     draw_hilbert_curve(ctx, dots, curve_order * 1)
-        #     hilbert_curves.append(dots)
-        # elif random_threshold <= 220:
-        #     dots = get_hilbert_dots(gap, curve_order, squares_grid[i][0])
-        #     draw_hilbert_curve(ctx, dots, curve_order)
-        #     hilbert_curves.append(dots)
+        # if random_threshold >= 140:
+        #     hilbert_curves.append(None)
         # else:
-        #     continue
+        #     dots = get_hilbert_dots(gap, curve_order * 1, squares_grid[i][0])
+        #     draw_hilbert_curve(ctx, dots, curve_order * 1)
+        #     hilbert_curves.append(dots)
+        if random_threshold <= 25:
+            dots = get_hilbert_dots(gap, curve_order * 4, squares_grid[i][0])
+            draw_hilbert_curve(ctx, dots, curve_order * 4)
+            hilbert_curves.append(dots)
+        elif random_threshold <= 50:
+            dots = get_hilbert_dots(gap, curve_order * 2, squares_grid[i][0])
+            draw_hilbert_curve(ctx, dots, curve_order * 2)
+            hilbert_curves.append(dots)
+        elif random_threshold <= 150:
+            dots = get_hilbert_dots(gap, curve_order, squares_grid[i][0])
+            draw_hilbert_curve(ctx, dots, curve_order)
+            hilbert_curves.append(dots)
+        else:
+            continue
 
     # print(hilbert_curves)
     # connect hilbert curves with each other
@@ -264,7 +264,7 @@ def main():
     ctx.set_colorkey(None)
     ctx.fill((255, 255, 255))
 
-    img_path = 'images/9.jpg'
+    img_path = 'images/10.jpg'
     img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
     # img = cv2.imread('9.jpg', cv2.IMREAD_UNCHANGED)
     width, height = img.shape[0], img.shape[1]
