@@ -26,37 +26,36 @@ paths = {
     25: ((1, 1), (5, 1), (5, 2), (1, 2), (1, 3), (5, 3), (5, 4), (1, 4), (1, 5), (5, 5))
 }
 
-
-def tests():
-    pygame.init()
-    canvas = pygame.display.set_mode((100, 100))
-    pygame.display.set_caption('Canvas. Tests')
-    ctx = canvas
-    ctx.set_alpha(None)
-    ctx.set_colorkey(None)
-    ctx.fill((255, 255, 255))
-
-    cell_size = 20
-    path = paths[16]
-
-    for i in range(len(path) - 1):
-        color = (0, 0, 0)
-        from_ = path[i]
-        to = path[i + 1]
-        coefficient = cell_size / 2
-        from_ = (from_[1] * cell_size - coefficient, from_[0] * cell_size - coefficient)
-        to = (to[1] * cell_size - coefficient, to[0] * cell_size - coefficient)
-        pygame.draw.aaline(ctx, color, from_, to)
-
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                sys.exit()
-        pygame.display.flip()
-
-
-def main():
-    tests()
-
-
-main()
+# def tests():
+#     pygame.init()
+#     canvas = pygame.display.set_mode((100, 100))
+#     pygame.display.set_caption('Canvas. Tests')
+#     ctx = canvas
+#     ctx.set_alpha(None)
+#     ctx.set_colorkey(None)
+#     ctx.fill((255, 255, 255))
+#
+#     cell_size = 20
+#     path = paths[16]
+#
+#     for i in range(len(path) - 1):
+#         color = (0, 0, 0)
+#         from_ = path[i]
+#         to = path[i + 1]
+#         coefficient = cell_size / 2
+#         from_ = (from_[1] * cell_size - coefficient, from_[0] * cell_size - coefficient)
+#         to = (to[1] * cell_size - coefficient, to[0] * cell_size - coefficient)
+#         pygame.draw.aaline(ctx, color, from_, to)
+#
+#     while True:
+#         for event in pygame.event.get():
+#             if event.type == pygame.QUIT:
+#                 sys.exit()
+#         pygame.display.flip()
+#
+#
+# def main():
+#     tests()
+#
+#
+# main()

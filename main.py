@@ -3,6 +3,8 @@ import cv2
 import pygame
 import numpy as np
 
+import standard_library_of_paths
+
 
 def get_thresholds_map(img, cell_size=10):
     height, width = img.shape
@@ -212,23 +214,86 @@ def get_path_clusters(bitmap):
     return path_clusters, segments_map
 
 
+def get_moving_paths(path_clusters, thresholds_map, cell_size, ctx):
+    moving_paths = []
+    raw_moving_paths = []
+
+    std_paths = standard_library_of_paths.paths
+
+    for idx, path_cluster in enumerate(path_clusters):
+        for segment in path_cluster:
+            raw_moving_paths.append('move')
+            x_left = segment['segment_idx'][0]
+            x_right = segment['segment_idx'][1]
+            y = segment['row_idx']
+            x_current = x_left
+
+            while x_current <= x_right:
+                mean_color = thresholds_map[y][x_current]
+                density = (255 - mean_color) / 255
+                std_path_key = tuple(std_paths.keys())[0]
+                for key in std_paths.keys():
+                    if abs((key / 25) - density) < abs((std_path_key / 25) - density):
+                        std_path_key = key
+
+                std_path = std_paths[std_path_key]
+
+                small_cell_size = cell_size // 5
+                coefficient = 0
+                x_shift = x_current * cell_size
+                y_shift = y * cell_size
+
+                for i in range(len(std_path)):
+                    point_to_move = (
+                        std_path[i][1] * small_cell_size - coefficient + x_shift,
+                        std_path[i][0] * small_cell_size - coefficient + y_shift
+                    )
+
+                    raw_moving_paths.append(point_to_move)
+
+                for i in range(len(std_path) - 1):
+                    color = (101, 142, 196)
+
+                    from_ = (
+                        std_path[i][1] * small_cell_size - coefficient + x_shift,
+                        std_path[i][0] * small_cell_size - coefficient + y_shift
+                    )
+                    to = (
+                        std_path[i + 1][1] * small_cell_size - coefficient + x_shift,
+                        std_path[i + 1][0] * small_cell_size - coefficient + y_shift
+                    )
+
+                    # pygame.draw.line(ctx, color, from_, to, 1)
+
+                x_current += 1
+
+    i = 0
+    while i < len(raw_moving_paths):
+        if raw_moving_paths[i] == 'move' and (i < (len(raw_moving_paths) - 1)):
+            moving_paths.append((raw_moving_paths[i + 1], 'move'))
+            i += 2
+        else:
+            moving_paths.append((raw_moving_paths[i], 'extrude'))
+            i += 1
+
+    return moving_paths
+
+
 def tests():
     pygame.init()
-    canvas = pygame.display.set_mode((1000, 1000))
+    canvas = pygame.display.set_mode((400, 400))
     pygame.display.set_caption('Canvas. Tests')
     ctx = canvas
     ctx.set_alpha(None)
     ctx.set_colorkey(None)
     ctx.fill((255, 255, 255))
 
-    img_path = 'images/2.jpg'
+    img_path = 'images/11.jpg'
     img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-    cell_size = 5
+    cell_size = 10
 
     thresholds_map = get_thresholds_map(img, cell_size)
-
-    threshold_coefficient = 1
-    threshold = img.mean(axis=(0, 1)) // threshold_coefficient
+    threshold = 240
     bitmap = get_bitmap(thresholds_map, threshold)
     bitmap_with_segments_info = _get_bitmap_with_segments_info(bitmap)
 
@@ -278,12 +343,25 @@ def tests():
     segments_map = _get_segments_map(bitmap)
     path_clusters, _segments_map_ = get_path_clusters(bitmap)
 
-    test_for_get_path_clusters(path_clusters)
+    # test_for_get_path_clusters(path_clusters)
+
+    moving_paths = get_moving_paths(path_clusters, thresholds_map, cell_size, ctx)
+
+    for i in range(len(moving_paths) - 1):
+        if moving_paths[i + 1][1] != 'move':
+            from_ = moving_paths[i][0]
+            to = moving_paths[i + 1][0]
+            color = (0, 0, 0)
+            pygame.draw.aaline(ctx, color, from_, to)
+            # pygame.draw.circle(ctx, (225, 18, 0), to, 1, 1)
 
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 sys.exit()
+            elif event.type == pygame.MOUSEBUTTONUP:
+                x, y = pygame.mouse.get_pos()
+                print(x, y)
         pygame.display.flip()
 
 
