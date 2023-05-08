@@ -296,9 +296,17 @@ def get_moving_paths(path_clusters, thresholds_map, cell_size):
     return moving_paths
 
 
+def x_convert_to_cartesian(x, x_min, x_max, width):
+    return x_min + ((x_max - x_min) * x / width)
+
+
+def y_convert_to_cartesian(y, y_min, y_max, height):
+    return y_max - ((y_max - y_min) * y / height)
+
+
 def tests():
     pygame.init()
-    canvas = pygame.display.set_mode((1000, 1000))
+    canvas = pygame.display.set_mode((400, 400))
     pygame.display.set_caption('Canvas. Tests')
     ctx = canvas
     ctx.set_alpha(None)
@@ -307,7 +315,7 @@ def tests():
 
     img_path = 'images/6.jpg'
     img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-    cell_size = 10
+    cell_size = 5
 
     thresholds_map = get_thresholds_map(img, cell_size)
     threshold = 240
@@ -372,6 +380,17 @@ def tests():
     # test_for_get_path_clusters(path_clusters)
 
     moving_paths = get_moving_paths(path_clusters, thresholds_map, cell_size)
+
+    with open('myGCode.gcode', 'w') as f:
+        for path in moving_paths:
+            x, y = path[0]
+            x = x_convert_to_cartesian(x, -110, 110, 400) / 2
+            y = y_convert_to_cartesian(y, -110, 110, 400) / 2
+            action_type = path[1]
+            if action_type == 'move':
+                f.write(f'G0 X{x} Y{y} ;\n')
+            else:
+                f.write(f'G1 X{x} Y{y} ;\n')
 
     test_for_get_moving_paths(moving_paths)
 
