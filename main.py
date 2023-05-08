@@ -214,9 +214,10 @@ def get_path_clusters(bitmap):
     return path_clusters, segments_map
 
 
-def get_moving_paths(path_clusters, thresholds_map, cell_size, ctx):
+def get_moving_paths(path_clusters, thresholds_map, cell_size):
     moving_paths = []
     raw_moving_paths = []
+    raw_moving_paths_2 = []
 
     std_paths = standard_library_of_paths.paths
 
@@ -239,7 +240,7 @@ def get_moving_paths(path_clusters, thresholds_map, cell_size, ctx):
                 std_path = std_paths[std_path_key]
 
                 small_cell_size = cell_size // 5
-                coefficient = 0
+                coefficient = 1
                 x_shift = x_current * cell_size
                 y_shift = y * cell_size
 
@@ -251,29 +252,45 @@ def get_moving_paths(path_clusters, thresholds_map, cell_size, ctx):
 
                     raw_moving_paths.append(point_to_move)
 
-                for i in range(len(std_path) - 1):
-                    color = (101, 142, 196)
-
-                    from_ = (
-                        std_path[i][1] * small_cell_size - coefficient + x_shift,
-                        std_path[i][0] * small_cell_size - coefficient + y_shift
-                    )
-                    to = (
-                        std_path[i + 1][1] * small_cell_size - coefficient + x_shift,
-                        std_path[i + 1][0] * small_cell_size - coefficient + y_shift
-                    )
-
-                    # pygame.draw.line(ctx, color, from_, to, 1)
-
                 x_current += 1
 
     i = 0
     while i < len(raw_moving_paths):
         if raw_moving_paths[i] == 'move' and (i < (len(raw_moving_paths) - 1)):
-            moving_paths.append((raw_moving_paths[i + 1], 'move'))
+            raw_moving_paths_2.append((raw_moving_paths[i + 1], 'move'))
             i += 2
         else:
-            moving_paths.append((raw_moving_paths[i], 'extrude'))
+            raw_moving_paths_2.append((raw_moving_paths[i], 'extrude'))
+            i += 1
+
+    i = 0
+    while i < len(raw_moving_paths_2) - 1:
+        current_point = raw_moving_paths_2[i]
+        moving_paths.append(current_point)
+        j = i + 1
+        next_point = raw_moving_paths_2[j]
+        match_type = None
+        if current_point[0][0] == next_point[0][0]:
+            match_type = 'horizontal'
+        elif current_point[0][1] == next_point[0][1]:
+            match_type = 'vertical'
+
+        if match_type is not None:
+            index_to_check = 0 if match_type == 'horizontal' else 1
+
+            k = j
+            while j < len(raw_moving_paths_2):
+                if current_point[0][index_to_check] == raw_moving_paths_2[j][0][index_to_check]:
+                    k = j
+                    j += 1
+                else:
+                    k = j - 1
+                    break
+
+            i = j
+            moving_paths.append(raw_moving_paths_2[k])
+
+        else:
             i += 1
 
     return moving_paths
@@ -281,14 +298,14 @@ def get_moving_paths(path_clusters, thresholds_map, cell_size, ctx):
 
 def tests():
     pygame.init()
-    canvas = pygame.display.set_mode((400, 400))
+    canvas = pygame.display.set_mode((1000, 1000))
     pygame.display.set_caption('Canvas. Tests')
     ctx = canvas
     ctx.set_alpha(None)
     ctx.set_colorkey(None)
     ctx.fill((255, 255, 255))
 
-    img_path = 'images/11.jpg'
+    img_path = 'images/6.jpg'
     img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
     cell_size = 10
 
@@ -336,6 +353,15 @@ def tests():
                 height = cell_size
                 pygame.draw.rect(ctx, color, (left, top, width, height))
 
+    def test_for_get_moving_paths(moving_paths_):
+        for i in range(len(moving_paths_) - 1):
+            if moving_paths_[i + 1][1] != 'move':
+                from_ = moving_paths_[i][0]
+                to = moving_paths_[i + 1][0]
+                color = (101, 142, 196)
+                pygame.draw.line(ctx, color, from_, to, 1)
+                # pygame.draw.circle(ctx, (225, 18, 0), to, 1, 1)
+
     # test_for_get_thresholds_map(thresholds_map)
     # test_for_get_bitmap(bitmap)
     # test_for_get_bitmap_with_segments_info(bitmap_with_segments_info)
@@ -345,15 +371,9 @@ def tests():
 
     # test_for_get_path_clusters(path_clusters)
 
-    moving_paths = get_moving_paths(path_clusters, thresholds_map, cell_size, ctx)
+    moving_paths = get_moving_paths(path_clusters, thresholds_map, cell_size)
 
-    for i in range(len(moving_paths) - 1):
-        if moving_paths[i + 1][1] != 'move':
-            from_ = moving_paths[i][0]
-            to = moving_paths[i + 1][0]
-            color = (0, 0, 0)
-            pygame.draw.aaline(ctx, color, from_, to)
-            # pygame.draw.circle(ctx, (225, 18, 0), to, 1, 1)
+    test_for_get_moving_paths(moving_paths)
 
     while True:
         for event in pygame.event.get():
