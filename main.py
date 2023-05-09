@@ -1,3 +1,4 @@
+import math
 import sys
 import cv2
 import pygame
@@ -306,14 +307,15 @@ def y_convert_to_cartesian(y, y_min, y_max, height):
 
 def tests():
     pygame.init()
-    canvas = pygame.display.set_mode((400, 400))
+    width = height = 110
+    canvas = pygame.display.set_mode((220, 220))
     pygame.display.set_caption('Canvas. Tests')
     ctx = canvas
     ctx.set_alpha(None)
     ctx.set_colorkey(None)
     ctx.fill((255, 255, 255))
 
-    img_path = 'images/6.jpg'
+    img_path = 'images/6_110.jpg'
     img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
     cell_size = 5
 
@@ -357,9 +359,9 @@ def tests():
             for segment in path_cluster:
                 left = segment['segment_idx'][0] * cell_size
                 top = segment['row_idx'] * cell_size
-                width = (segment['segment_idx'][1] - segment['segment_idx'][0] + 1) * cell_size
-                height = cell_size
-                pygame.draw.rect(ctx, color, (left, top, width, height))
+                _width = (segment['segment_idx'][1] - segment['segment_idx'][0] + 1) * cell_size
+                _height = cell_size
+                pygame.draw.rect(ctx, color, (left, top, _width, _height))
 
     def test_for_get_moving_paths(moving_paths_):
         for i in range(len(moving_paths_) - 1):
@@ -381,16 +383,55 @@ def tests():
 
     moving_paths = get_moving_paths(path_clusters, thresholds_map, cell_size)
 
-    with open('myGCode.gcode', 'w') as f:
-        for path in moving_paths:
-            x, y = path[0]
-            x = x_convert_to_cartesian(x, -110, 110, 400) / 2
-            y = y_convert_to_cartesian(y, -110, 110, 400) / 2
-            action_type = path[1]
-            if action_type == 'move':
-                f.write(f'G0 X{x} Y{y} ;\n')
-            else:
-                f.write(f'G1 X{x} Y{y} ;\n')
+    layer_height = 0.2
+    flow_modifier = 1
+    nozzle_diameter = 0.4
+    filament_diameter = 1.75
+
+    with open('myGCode_5_E2.gcode', 'w', encoding='utf-8') as f:
+        f.write(';1 этап - инициализация\n')
+        f.write('G21 ;Установка метрической системы координат \n')
+        f.write('G90 ;Установка абсолютных координат \n')
+        f.write('M82 ;Установить экструдер в абсолютный режим \n')
+        f.write('G92 E0 ;обнуление координаты экструдера\n')
+        f.write('M190 S60 ;прогрев стола до 60 градусов\n')
+        f.write('M109 S210 ;прогрев хотэнда до 210 градусов\n')
+        f.write('M107 ;выключить вентилятор\n')
+        f.write('G28 ;автопарковка всех осей\n')
+        f.write(';2 этап - 3D печать\n')
+
+        for j in range(1, 6):
+            z = layer_height * j
+            f.write(f'G0 Z{z} ;\n')
+            for i in range(len(moving_paths)):
+                path = moving_paths[i]
+                x, y = path[0]
+                x = x_convert_to_cartesian(x, 0, width, width) / 2
+                y = y_convert_to_cartesian(y, 0, height, height) / 2
+                action_type = path[1]
+                if action_type == 'move':
+                    f.write(f'G0 X{x} Y{y} ;\n')
+                else:
+                    prev_path = moving_paths[i - 1]
+                    x_prev, y_prev = prev_path[0]
+                    x_prev = x_convert_to_cartesian(x_prev, 0, width, width) / 2
+                    y_prev = y_convert_to_cartesian(y_prev, 0, height, height) / 2
+                    dist = math.dist((x, y), (x_prev, y_prev))
+                    # print(path[0], prev_path[0], dist)
+                    E = (4 * layer_height * flow_modifier * nozzle_diameter * dist) / (
+                            math.pi * filament_diameter * filament_diameter)
+                    E = dist
+                    f.write(f'G1 X{x} Y{y} E{E} ;\n')
+
+        f.write(';3 этап -  перегрузка 3D принтера\n')
+        f.write('M107 ;выключение вентилятора')
+        f.write('M104 S0 ;выключение нагревателя хотэнда\n')
+        f.write('M140 S0 ;выключение нагревателя стола\n')
+        f.write('M84 ;отключение моторов\n')
+        f.write('G91 ;относительное позиционирование\n')
+        f.write('G1 E-1 F300 ;втянуть нить перед тем, как поднять сопло\n')
+        f.write('G0 Z+0.5 E-5 ;\n')
+        f.write('G28 ;автопарковка всех осей\n')
 
     test_for_get_moving_paths(moving_paths)
 
