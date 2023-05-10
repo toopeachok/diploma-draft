@@ -387,51 +387,32 @@ def tests():
     flow_modifier = 1
     nozzle_diameter = 0.4
     filament_diameter = 1.75
+    offset = 45 + 17.5
+    layers_count = 10
 
-    with open('myGCode_5_E2.gcode', 'w', encoding='utf-8') as f:
-        f.write(';1 этап - инициализация\n')
-        f.write('G21 ;Установка метрической системы координат \n')
-        f.write('G90 ;Установка абсолютных координат \n')
-        f.write('M82 ;Установить экструдер в абсолютный режим \n')
-        f.write('G92 E0 ;обнуление координаты экструдера\n')
-        f.write('M190 S60 ;прогрев стола до 60 градусов\n')
-        f.write('M109 S210 ;прогрев хотэнда до 210 градусов\n')
-        f.write('M107 ;выключить вентилятор\n')
-        f.write('G28 ;автопарковка всех осей\n')
-        f.write(';2 этап - 3D печать\n')
-
-        for j in range(1, 6):
+    with open(f'test_{layers_count}.gcode', 'w', encoding='utf-8') as f:
+        for j in range(1, (layers_count + 1)):
             z = layer_height * j
-            f.write(f'G0 Z{z} ;\n')
+            if j > 1:
+                f.write(f'G0 Z{z}\n')
+
             for i in range(len(moving_paths)):
                 path = moving_paths[i]
                 x, y = path[0]
-                x = x_convert_to_cartesian(x, 0, width, width) / 2
-                y = y_convert_to_cartesian(y, 0, height, height) / 2
+                x = x_convert_to_cartesian(x, 0, width, width) / 2 + offset
+                y = y_convert_to_cartesian(y, 0, height, height) / 2 + offset
                 action_type = path[1]
                 if action_type == 'move':
-                    f.write(f'G0 X{x} Y{y} ;\n')
+                    f.write(f'G0 X{x} Y{y}\n')
                 else:
                     prev_path = moving_paths[i - 1]
                     x_prev, y_prev = prev_path[0]
-                    x_prev = x_convert_to_cartesian(x_prev, 0, width, width) / 2
-                    y_prev = y_convert_to_cartesian(y_prev, 0, height, height) / 2
+                    x_prev = x_convert_to_cartesian(x_prev, 0, width, width) / 2 + offset
+                    y_prev = y_convert_to_cartesian(y_prev, 0, height, height) / 2 + offset
                     dist = math.dist((x, y), (x_prev, y_prev))
-                    # print(path[0], prev_path[0], dist)
                     E = (4 * layer_height * flow_modifier * nozzle_diameter * dist) / (
                             math.pi * filament_diameter * filament_diameter)
-                    E = dist
-                    f.write(f'G1 X{x} Y{y} E{E} ;\n')
-
-        f.write(';3 этап -  перегрузка 3D принтера\n')
-        f.write('M107 ;выключение вентилятора')
-        f.write('M104 S0 ;выключение нагревателя хотэнда\n')
-        f.write('M140 S0 ;выключение нагревателя стола\n')
-        f.write('M84 ;отключение моторов\n')
-        f.write('G91 ;относительное позиционирование\n')
-        f.write('G1 E-1 F300 ;втянуть нить перед тем, как поднять сопло\n')
-        f.write('G0 Z+0.5 E-5 ;\n')
-        f.write('G28 ;автопарковка всех осей\n')
+                    f.write(f'G1 X{x} Y{y} E{E}\n')
 
     test_for_get_moving_paths(moving_paths)
 
