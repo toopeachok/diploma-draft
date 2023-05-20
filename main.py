@@ -305,6 +305,41 @@ def y_convert_to_cartesian(y, y_min, y_max, height):
     return y_max - ((y_max - y_min) * y / height)
 
 
+def get_gcode_file(moving_paths, width, height):
+    layer_height = 0.2
+    flow_modifier = 32
+    nozzle_diameter = 0.4
+    filament_diameter = 1.75
+    offset = 45 + 17.5
+    layers_count = 50
+
+    with open(f'test_{layers_count}_FW_{flow_modifier}_.gcode', 'w', encoding='utf-8') as f:
+        f.write(f'G1 F1200\n')
+        for j in range(1, (layers_count + 1)):
+            z = layer_height * j
+            if j > 1:
+                f.write(f'G0 Z{z}\n')
+
+            for i in range(len(moving_paths)):
+                path = moving_paths[i]
+                x, y = path[0]
+                x = x_convert_to_cartesian(x, 0, width, width) / 2 + offset
+                y = y_convert_to_cartesian(y, 0, height, height) / 2 + offset
+                action_type = path[1]
+                if action_type == 'move':
+                    f.write(f'G1 X{x} Y{y} F9000\n')
+                    f.write(f'G1 F1200\n')
+                else:
+                    prev_path = moving_paths[i - 1]
+                    x_prev, y_prev = prev_path[0]
+                    x_prev = x_convert_to_cartesian(x_prev, 0, width, width) / 2 + offset
+                    y_prev = y_convert_to_cartesian(y_prev, 0, height, height) / 2 + offset
+                    dist = math.dist((x, y), (x_prev, y_prev))
+                    E = (4 * layer_height * flow_modifier * nozzle_diameter * dist) / (
+                            math.pi * filament_diameter * filament_diameter)
+                    f.write(f'G1 X{x} Y{y} E{E}\n')
+
+
 def tests():
     pygame.init()
     width = height = 110
@@ -382,37 +417,6 @@ def tests():
     # test_for_get_path_clusters(path_clusters)
 
     moving_paths = get_moving_paths(path_clusters, thresholds_map, cell_size)
-
-    layer_height = 0.2
-    flow_modifier = 1
-    nozzle_diameter = 0.4
-    filament_diameter = 1.75
-    offset = 45 + 17.5
-    layers_count = 10
-
-    with open(f'test_{layers_count}.gcode', 'w', encoding='utf-8') as f:
-        for j in range(1, (layers_count + 1)):
-            z = layer_height * j
-            if j > 1:
-                f.write(f'G0 Z{z}\n')
-
-            for i in range(len(moving_paths)):
-                path = moving_paths[i]
-                x, y = path[0]
-                x = x_convert_to_cartesian(x, 0, width, width) / 2 + offset
-                y = y_convert_to_cartesian(y, 0, height, height) / 2 + offset
-                action_type = path[1]
-                if action_type == 'move':
-                    f.write(f'G0 X{x} Y{y}\n')
-                else:
-                    prev_path = moving_paths[i - 1]
-                    x_prev, y_prev = prev_path[0]
-                    x_prev = x_convert_to_cartesian(x_prev, 0, width, width) / 2 + offset
-                    y_prev = y_convert_to_cartesian(y_prev, 0, height, height) / 2 + offset
-                    dist = math.dist((x, y), (x_prev, y_prev))
-                    E = (4 * layer_height * flow_modifier * nozzle_diameter * dist) / (
-                            math.pi * filament_diameter * filament_diameter)
-                    f.write(f'G1 X{x} Y{y} E{E}\n')
 
     test_for_get_moving_paths(moving_paths)
 
