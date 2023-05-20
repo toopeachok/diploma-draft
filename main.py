@@ -7,7 +7,7 @@ import numpy as np
 import standard_library_of_paths
 
 
-def get_thresholds_map(img, cell_size=10):
+def get_thresholds_map(img, cell_size=5):
     height, width = img.shape
     if height != width:
         raise ValueError('height != width')
@@ -307,10 +307,10 @@ def y_convert_to_cartesian(y, y_min, y_max, height):
 
 def get_gcode_file(moving_paths, width, height):
     layer_height = 0.2
-    flow_modifier = 32
+    flow_modifier = 1
     nozzle_diameter = 0.4
     filament_diameter = 1.75
-    offset = 45 + 17.5
+    offset = 67.5
     layers_count = 50
 
     with open(f'test_{layers_count}_FW_{flow_modifier}_.gcode', 'w', encoding='utf-8') as f:
@@ -340,22 +340,49 @@ def get_gcode_file(moving_paths, width, height):
                     f.write(f'G1 X{x} Y{y} E{E}\n')
 
 
+def draw_border(ctx, img, cell_size):
+    height, width = img.shape
+    lines_count = height // cell_size
+
+    for i in range(lines_count):
+        for j in range(lines_count):
+            value = img[i * cell_size:i * cell_size + cell_size, j * cell_size:j * cell_size + cell_size].mean(
+                axis=(0, 1))
+
+            left = j * cell_size
+            top = i * cell_size
+            _width = cell_size
+            _height = cell_size
+
+            if value >= 254:
+                color = (255, 0, 0)
+                pygame.draw.rect(ctx, color, (left, top, _width, _height))
+            else:
+                for k in range(0, cell_size + 1):
+                    for m in range(0, cell_size + 1):
+                        value = img[i * cell_size + k, j * cell_size + m]
+
+                        if value >= 254:
+                            color = (0, 255, 0)
+                            pygame.draw.rect(ctx, color, (left, top, _width, _height))
+                            break
+
+
 def tests():
     pygame.init()
-    width = height = 110
-    canvas = pygame.display.set_mode((220, 220))
+    canvas = pygame.display.set_mode((1000, 1000))
     pygame.display.set_caption('Canvas. Tests')
     ctx = canvas
     ctx.set_alpha(None)
     ctx.set_colorkey(None)
     ctx.fill((255, 255, 255))
 
-    img_path = 'images/6_110.jpg'
+    img_path = 'images/13.jpg'
     img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
     cell_size = 5
 
     thresholds_map = get_thresholds_map(img, cell_size)
-    threshold = 240
+    threshold = 254
     bitmap = get_bitmap(thresholds_map, threshold)
     bitmap_with_segments_info = _get_bitmap_with_segments_info(bitmap)
 
@@ -420,6 +447,10 @@ def tests():
 
     test_for_get_moving_paths(moving_paths)
 
+    my_img = pygame.image.load(img_path)
+    # canvas.blit(my_img, (0, 0))
+    draw_border(ctx, img, cell_size)
+
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -427,6 +458,7 @@ def tests():
             elif event.type == pygame.MOUSEBUTTONUP:
                 x, y = pygame.mouse.get_pos()
                 print(x, y)
+
         pygame.display.flip()
 
 
