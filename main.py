@@ -7,7 +7,7 @@ import numpy as np
 import standard_library_of_paths
 
 
-def get_thresholds_map(img, cell_size=5):
+def get_thresholds_map(img, cell_size=5, white_pixel_threshold=254):
     height, width = img.shape
     if height != width:
         raise ValueError('height != width')
@@ -23,7 +23,24 @@ def get_thresholds_map(img, cell_size=5):
         for j in range(lines_count):
             value = img[i * cell_size:i * cell_size + cell_size, j * cell_size:j * cell_size + cell_size].mean(
                 axis=(0, 1))
-            thresholds_map[i][j] = value
+
+            if value >= white_pixel_threshold:
+                thresholds_map[i][j] = 255
+            else:
+                is_border_cell = False
+                k = 0
+                while (not is_border_cell) and k <= cell_size:
+                    for m in range(0, cell_size + 1):
+                        _value = img[i * cell_size + k, j * cell_size + m]
+                        if _value >= white_pixel_threshold:
+                            is_border_cell = True
+                            break
+                    k += 1
+
+                if is_border_cell:
+                    thresholds_map[i][j] = 0
+                else:
+                    thresholds_map[i][j] = value
 
     return thresholds_map
 
@@ -34,7 +51,7 @@ def get_bitmap(thresholds_map, threshold):
 
     for i in range(bitmap_length):
         for j in range(bitmap_length):
-            if thresholds_map[i][j] <= threshold:
+            if thresholds_map[i][j] < threshold:
                 bitmap[i][j] = 1
 
     return bitmap
@@ -370,20 +387,21 @@ def draw_border(ctx, img, cell_size):
 
 def tests():
     pygame.init()
-    canvas = pygame.display.set_mode((1000, 1000))
+    canvas = pygame.display.set_mode((500, 500))
     pygame.display.set_caption('Canvas. Tests')
     ctx = canvas
     ctx.set_alpha(None)
     ctx.set_colorkey(None)
     ctx.fill((255, 255, 255))
 
-    img_path = 'images/13.jpg'
+    img_path = 'images/12.jpg'
     img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+    height, width = img.shape
     cell_size = 5
 
-    thresholds_map = get_thresholds_map(img, cell_size)
-    threshold = 254
-    bitmap = get_bitmap(thresholds_map, threshold)
+    white_pixel_threshold = 254
+    thresholds_map = get_thresholds_map(img, cell_size, white_pixel_threshold)
+    bitmap = get_bitmap(thresholds_map, white_pixel_threshold)
     bitmap_with_segments_info = _get_bitmap_with_segments_info(bitmap)
 
     def test_for_get_thresholds_map(thresholds_map_):
@@ -447,9 +465,9 @@ def tests():
 
     test_for_get_moving_paths(moving_paths)
 
-    my_img = pygame.image.load(img_path)
-    # canvas.blit(my_img, (0, 0))
-    draw_border(ctx, img, cell_size)
+    # get_gcode_file(moving_paths, width, height)
+
+    # draw_border(ctx, img, cell_size)
 
     while True:
         for event in pygame.event.get():
