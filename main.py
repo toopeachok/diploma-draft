@@ -241,7 +241,8 @@ def get_moving_paths(path_clusters, cell_size, thresholds_map=None, is_border_ce
 
                     std_path = std_paths[std_path_key]
                 else:
-                    std_path = paths_for_border_cell[y][x_current]
+                    std_path = std_paths[25]
+                    # std_path = paths_for_border_cell[y][x_current]
 
                 small_cell_size = cell_size // 5
                 coefficient = 0
@@ -309,15 +310,15 @@ def y_convert_to_cartesian(y, y_min, y_max, height):
     return y_max - ((y_max - y_min) * y / height)
 
 
-def get_gcode_file(moving_paths, width, height):
+def get_gcode_file(moving_paths, width, height, file_name='test'):
     layer_height = 0.2
     flow_modifier = 1
     nozzle_diameter = 0.4
     filament_diameter = 1.75
     offset = 67.5
-    layers_count = 50
+    layers_count = 5
 
-    with open(f'test_{layers_count}_FW_{flow_modifier}_.gcode', 'w', encoding='utf-8') as f:
+    with open(f'{file_name}_{layers_count}_FW_{flow_modifier}_.gcode', 'w', encoding='utf-8') as f:
         f.write(f'G1 F1200\n')
         for j in range(1, (layers_count + 1)):
             z = layer_height * j
@@ -411,7 +412,6 @@ def get_border_bitmap(img, cell_size=5, white_pixel_threshold=254):
 
 
 def get_border_extended_bitmap(img, border_bitmap, cell_size=5, black_pixel_threshold=30):
-    height, width = img.shape
     lines_count = len(border_bitmap)
     border_extended_bitmap = [[None for _ in range(lines_count)] for _ in range(lines_count)]
 
@@ -445,19 +445,16 @@ def get_paths_for_border_extended_bitmap(border_extended_bitmap):
         for j in range(lines_count):
             if border_extended_bitmap[i][j] is not None:
                 cell_size = len(border_extended_bitmap[i][j])
-                direction = 1
                 temp_result = []
                 for k in range(cell_size):
                     match_indexes = [index for (index, item) in enumerate(border_extended_bitmap[i][j][k]) if item == 1]
+                    print(f'match_indexes: {match_indexes}')
                     start_stop_indexes = None
-                    if len(match_indexes) > 0:
-                        start_stop_indexes = [match_indexes[0], match_indexes[-1]] if direction == 1 else [
-                            match_indexes[-1],
-                            match_indexes[0]]
-
-                    direction *= -1
+                    if len(match_indexes) > 1:
+                        start_stop_indexes = [match_indexes[0], match_indexes[-1]]
 
                     if start_stop_indexes is not None:
+                        print(f'i: {i}, j: {j}, start_stop_indexes: {start_stop_indexes}')
                         coefficient = 1
                         temp_result.append((k + coefficient, start_stop_indexes[0] + coefficient))
                         temp_result.append((k + coefficient, start_stop_indexes[1] + coefficient))
@@ -572,19 +569,18 @@ def tests():
 
     moving_paths = get_moving_paths(path_clusters, cell_size, thresholds_map)
 
-    test_for_get_moving_paths(moving_paths)
+    # test_for_get_moving_paths(moving_paths)
 
     # get_gcode_file(moving_paths, width, height)
 
     # Border
     # draw_border(ctx, img, cell_size)
-    border_thresholds_map = get_thresholds_map(border_img, cell_size)
 
     border_bitmap = get_border_bitmap(border_img)
     border_bitmap_with_segments_info = _get_bitmap_with_segments_info(border_bitmap)
     # test_for_get_bitmap_with_segments_info(border_bitmap_with_segments_info)
 
-    border_extended_bitmap = get_border_extended_bitmap(border_img, border_bitmap)
+    border_extended_bitmap = get_border_extended_bitmap(border_img, border_bitmap, cell_size, 40)
     # test_for_border_extended_bitmap(border_extended_bitmap)
 
     paths_for_border_extended_bitmap = get_paths_for_border_extended_bitmap(border_extended_bitmap)
@@ -596,6 +592,8 @@ def tests():
     border_moving_paths = get_moving_paths(border_path_clusters, cell_size, None, True,
                                            paths_for_border_extended_bitmap)
     test_for_get_moving_paths(border_moving_paths)
+
+    get_gcode_file(border_moving_paths, width, height, 'test_16_border')
 
     print('debug')
 
