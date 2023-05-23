@@ -7,7 +7,7 @@ import numpy as np
 import standard_library_of_paths
 
 
-def get_thresholds_map(img, cell_size=5, white_pixel_threshold=254):
+def get_thresholds_map(img, cell_size=5):
     height, width = img.shape
     if height != width:
         raise ValueError('height != width')
@@ -23,24 +23,7 @@ def get_thresholds_map(img, cell_size=5, white_pixel_threshold=254):
         for j in range(lines_count):
             value = img[i * cell_size:i * cell_size + cell_size, j * cell_size:j * cell_size + cell_size].mean(
                 axis=(0, 1))
-
-            if value >= white_pixel_threshold:
-                thresholds_map[i][j] = 255
-            else:
-                is_border_cell = False
-                k = 0
-                while (not is_border_cell) and k <= cell_size:
-                    for m in range(0, cell_size + 1):
-                        _value = img[i * cell_size + k, j * cell_size + m]
-                        if _value >= white_pixel_threshold:
-                            is_border_cell = True
-                            break
-                    k += 1
-
-                if is_border_cell:
-                    thresholds_map[i][j] = 0
-                else:
-                    thresholds_map[i][j] = value
+            thresholds_map[i][j] = value
 
     return thresholds_map
 
@@ -385,6 +368,65 @@ def draw_border(ctx, img, cell_size):
                             break
 
 
+def get_border_bitmap(img, cell_size=5, white_pixel_threshold=254):
+    height, width = img.shape
+    if height != width:
+        raise ValueError('height != width')
+    elif cell_size >= height:
+        raise ValueError('cell_size can not be >= height')
+    elif height % cell_size != 0:
+        raise ValueError('height must be divided without remainder by cell_size')
+
+    lines_count = height // cell_size
+    border_bitmap = [[0 for _ in range(lines_count)] for _ in range(lines_count)]
+
+    for i in range(lines_count):
+        for j in range(lines_count):
+            value = img[i * cell_size:i * cell_size + cell_size, j * cell_size:j * cell_size + cell_size].mean(
+                axis=(0, 1))
+
+            if value < white_pixel_threshold:
+                is_border_cell = False
+                k = 0
+                while (not is_border_cell) and ((i * cell_size + k) < width) and k <= cell_size:
+                    m = 0
+                    while ((j * cell_size + m) < width) and (m <= cell_size):
+                        _value = img[i * cell_size + k, j * cell_size + m]
+                        m += 1
+                        if _value >= white_pixel_threshold:
+                            is_border_cell = True
+                            break
+                    k += 1
+
+                if is_border_cell:
+                    border_bitmap[i][j] = 1
+                else:
+                    border_bitmap[i][j] = 0
+
+    return border_bitmap
+
+
+def get_border_extended_bitmap(img, border_bitmap, cell_size=5, black_pixel_threshold=30):
+    height, width = img.shape
+    lines_count = len(border_bitmap)
+    border_extended_bitmap = [[None for _ in range(lines_count)] for _ in range(lines_count)]
+
+    for i in range(lines_count):
+        for j in range(lines_count):
+            if border_bitmap[i][j] == 1:
+                cell_matrix = [[0 for _ in range(cell_size)] for _ in range(cell_size)]
+                for k in range(cell_size):
+                    for m in range(cell_size):
+                        value = img[i * cell_size + k, j * cell_size + m]
+                        if value <= black_pixel_threshold:
+                            cell_matrix[k][m] = 1
+                        else:
+                            cell_matrix[k][m] = 0
+                border_extended_bitmap[i][j] = cell_matrix
+
+    return border_extended_bitmap
+
+
 def tests():
     pygame.init()
     canvas = pygame.display.set_mode((500, 500))
@@ -394,13 +436,15 @@ def tests():
     ctx.set_colorkey(None)
     ctx.fill((255, 255, 255))
 
-    img_path = 'images/12.jpg'
-    img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-    height, width = img.shape
+    infill_img_path = 'images/16_infill.jpg'
+    infill_img = cv2.imread(infill_img_path, cv2.IMREAD_GRAYSCALE)
+    border_img_path = 'images/16_border.jpg'
+    border_img = cv2.imread(border_img_path, cv2.IMREAD_GRAYSCALE)
+    height, width = infill_img.shape
     cell_size = 5
 
     white_pixel_threshold = 254
-    thresholds_map = get_thresholds_map(img, cell_size, white_pixel_threshold)
+    thresholds_map = get_thresholds_map(infill_img, cell_size)
     bitmap = get_bitmap(thresholds_map, white_pixel_threshold)
     bitmap_with_segments_info = _get_bitmap_with_segments_info(bitmap)
 
@@ -452,6 +496,17 @@ def tests():
                 pygame.draw.line(ctx, color, from_, to, 1)
                 # pygame.draw.circle(ctx, (225, 18, 0), to, 1, 1)
 
+    def test_for_border_extended_bitmap(border_extended_bitmap_):
+        for i in range(len(border_extended_bitmap_)):
+            for j in range(len(border_extended_bitmap_)):
+                if border_extended_bitmap_[i][j] is not None:
+                    for k in range(cell_size):
+                        for m in range(cell_size):
+                            if border_extended_bitmap_[i][j][k][m] == 1:
+                                top = i * cell_size + k
+                                left = j * cell_size + m
+                                pygame.draw.rect(ctx, (0, 0, 0), (left, top, 1, 1))
+
     # test_for_get_thresholds_map(thresholds_map)
     # test_for_get_bitmap(bitmap)
     # test_for_get_bitmap_with_segments_info(bitmap_with_segments_info)
@@ -463,11 +518,20 @@ def tests():
 
     moving_paths = get_moving_paths(path_clusters, thresholds_map, cell_size)
 
-    test_for_get_moving_paths(moving_paths)
+    # test_for_get_moving_paths(moving_paths)
 
     # get_gcode_file(moving_paths, width, height)
 
     # draw_border(ctx, img, cell_size)
+
+    border_bitmap = get_border_bitmap(border_img)
+    border_bitmap_with_segments_info = _get_bitmap_with_segments_info(border_bitmap)
+    # test_for_get_bitmap_with_segments_info(border_bitmap_with_segments_info)
+
+    border_extended_bitmap = get_border_extended_bitmap(border_img, border_bitmap)
+    test_for_border_extended_bitmap(border_extended_bitmap)
+
+    print('debug')
 
     while True:
         for event in pygame.event.get():
