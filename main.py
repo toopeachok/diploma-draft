@@ -215,7 +215,7 @@ def get_path_clusters(bitmap):
     return path_clusters, segments_map
 
 
-def get_moving_paths(path_clusters, thresholds_map, cell_size):
+def get_moving_paths(path_clusters, cell_size, thresholds_map=None, is_border_cell=False, paths_for_border_cell=None):
     moving_paths = []
     raw_moving_paths = []
     raw_moving_paths_2 = []
@@ -231,27 +231,31 @@ def get_moving_paths(path_clusters, thresholds_map, cell_size):
             x_current = x_left
 
             while x_current <= x_right:
-                mean_color = thresholds_map[y][x_current]
-                density = (255 - mean_color) / 255
-                std_path_key = tuple(std_paths.keys())[0]
-                for key in std_paths.keys():
-                    if abs((key / 25) - density) < abs((std_path_key / 25) - density):
-                        std_path_key = key
+                if not is_border_cell:
+                    mean_color = thresholds_map[y][x_current]
+                    density = (255 - mean_color) / 255
+                    std_path_key = tuple(std_paths.keys())[0]
+                    for key in std_paths.keys():
+                        if abs((key / 25) - density) < abs((std_path_key / 25) - density):
+                            std_path_key = key
 
-                std_path = std_paths[std_path_key]
+                    std_path = std_paths[std_path_key]
+                else:
+                    std_path = paths_for_border_cell[y][x_current]
 
                 small_cell_size = cell_size // 5
-                coefficient = 1
+                coefficient = 0
                 x_shift = x_current * cell_size
                 y_shift = y * cell_size
 
-                for i in range(len(std_path)):
-                    point_to_move = (
-                        std_path[i][1] * small_cell_size - coefficient + x_shift,
-                        std_path[i][0] * small_cell_size - coefficient + y_shift
-                    )
+                if std_path is not None:
+                    for i in range(len(std_path)):
+                        point_to_move = (
+                            std_path[i][1] * small_cell_size - coefficient + x_shift,
+                            std_path[i][0] * small_cell_size - coefficient + y_shift
+                        )
 
-                    raw_moving_paths.append(point_to_move)
+                        raw_moving_paths.append(point_to_move)
 
                 x_current += 1
 
@@ -422,9 +426,45 @@ def get_border_extended_bitmap(img, border_bitmap, cell_size=5, black_pixel_thre
                             cell_matrix[k][m] = 1
                         else:
                             cell_matrix[k][m] = 0
-                border_extended_bitmap[i][j] = cell_matrix
+
+                cell_matrix_sum = 0
+                for k in range(cell_size):
+                    for m in range(cell_size):
+                        cell_matrix_sum += cell_matrix[k][m]
+
+                border_extended_bitmap[i][j] = cell_matrix if cell_matrix_sum >= 5 else None
 
     return border_extended_bitmap
+
+
+def get_paths_for_border_extended_bitmap(border_extended_bitmap):
+    lines_count = len(border_extended_bitmap)
+    paths = [[None for _ in range(lines_count)] for _ in range(lines_count)]
+
+    for i in range(lines_count):
+        for j in range(lines_count):
+            if border_extended_bitmap[i][j] is not None:
+                cell_size = len(border_extended_bitmap[i][j])
+                direction = 1
+                temp_result = []
+                for k in range(cell_size):
+                    match_indexes = [index for (index, item) in enumerate(border_extended_bitmap[i][j][k]) if item == 1]
+                    start_stop_indexes = None
+                    if len(match_indexes) > 0:
+                        start_stop_indexes = [match_indexes[0], match_indexes[-1]] if direction == 1 else [
+                            match_indexes[-1],
+                            match_indexes[0]]
+
+                    direction *= -1
+
+                    if start_stop_indexes is not None:
+                        coefficient = 1
+                        temp_result.append((k + coefficient, start_stop_indexes[0] + coefficient))
+                        temp_result.append((k + coefficient, start_stop_indexes[1] + coefficient))
+
+                paths[i][j] = tuple(temp_result)
+
+    return paths
 
 
 def tests():
@@ -507,6 +547,20 @@ def tests():
                                 left = j * cell_size + m
                                 pygame.draw.rect(ctx, (0, 0, 0), (left, top, 1, 1))
 
+    def test_for_get_paths_for_border_extended_bitmap(paths_for_border_extended_bitmap_):
+        for i in range(len(paths_for_border_extended_bitmap_)):
+            for j in range(len(paths_for_border_extended_bitmap_)):
+                if paths_for_border_extended_bitmap_[i][j] is not None:
+                    for k in range(len(paths_for_border_extended_bitmap_[i][j]) - 1):
+                        x = j * cell_size
+                        y = i * cell_size
+                        start = paths_for_border_extended_bitmap_[i][j][k]
+                        start = (x + start[1], y + start[0])
+                        stop = paths_for_border_extended_bitmap_[i][j][k + 1]
+                        stop = (x + stop[1], y + stop[0])
+                        pygame.draw.line(ctx, (0, 0, 0), start, stop)
+
+    # Infill
     # test_for_get_thresholds_map(thresholds_map)
     # test_for_get_bitmap(bitmap)
     # test_for_get_bitmap_with_segments_info(bitmap_with_segments_info)
@@ -516,20 +570,32 @@ def tests():
 
     # test_for_get_path_clusters(path_clusters)
 
-    moving_paths = get_moving_paths(path_clusters, thresholds_map, cell_size)
+    moving_paths = get_moving_paths(path_clusters, cell_size, thresholds_map)
 
-    # test_for_get_moving_paths(moving_paths)
+    test_for_get_moving_paths(moving_paths)
 
     # get_gcode_file(moving_paths, width, height)
 
+    # Border
     # draw_border(ctx, img, cell_size)
+    border_thresholds_map = get_thresholds_map(border_img, cell_size)
 
     border_bitmap = get_border_bitmap(border_img)
     border_bitmap_with_segments_info = _get_bitmap_with_segments_info(border_bitmap)
     # test_for_get_bitmap_with_segments_info(border_bitmap_with_segments_info)
 
     border_extended_bitmap = get_border_extended_bitmap(border_img, border_bitmap)
-    test_for_border_extended_bitmap(border_extended_bitmap)
+    # test_for_border_extended_bitmap(border_extended_bitmap)
+
+    paths_for_border_extended_bitmap = get_paths_for_border_extended_bitmap(border_extended_bitmap)
+    # test_for_get_paths_for_border_extended_bitmap(paths_for_border_extended_bitmap)
+
+    border_path_clusters, _ = get_path_clusters(border_bitmap)
+    # test_for_get_path_clusters(border_path_clusters)
+
+    border_moving_paths = get_moving_paths(border_path_clusters, cell_size, None, True,
+                                           paths_for_border_extended_bitmap)
+    test_for_get_moving_paths(border_moving_paths)
 
     print('debug')
 
