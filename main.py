@@ -314,13 +314,16 @@ def y_convert_to_cartesian(y, y_min, y_max, height):
     return y_max - ((y_max - y_min) * y / height)
 
 
-def get_gcode_file(infill_motion_paths, border_width_motion_paths, width, height, file_name='test'):
-    layer_height = 0.2
-    flow_modifier = 1
-    nozzle_diameter = 0.4
-    filament_diameter = 1.75
-    offset = 20
-    layers_count = 5
+def get_gcode_file(infill_motion_paths, border_motion_paths, print_options):
+    layer_height = print_options['layer_height']
+    flow_modifier = print_options['flow_modifier']
+    nozzle_diameter = print_options['nozzle_diameter']
+    filament_diameter = print_options['filament_diameter']
+    offset = print_options['offset']
+    layers_count = print_options['layers_count']
+    width = print_options['width']
+    height = print_options['height']
+    file_name = print_options['file_name']
 
     with open(f'{file_name}_LC_{layers_count}_FW_{flow_modifier}_.gcode', 'w', encoding='utf-8') as f:
         f.write(f'G1 F1200\n')
@@ -350,10 +353,10 @@ def get_gcode_file(infill_motion_paths, border_width_motion_paths, width, height
                                 math.pi * filament_diameter * filament_diameter)
                         f.write(f'G1 X{x} Y{y} E{E}\n')
 
-            if len(border_width_motion_paths) > 0:
+            if len(border_motion_paths) > 0:
                 f.write(';TYPE:Perimeter\n')
-                for i in range(len(border_width_motion_paths)):
-                    path = border_width_motion_paths[i]
+                for i in range(len(border_motion_paths)):
+                    path = border_motion_paths[i]
                     x, y = path[0]
                     x = x_convert_to_cartesian(x, 0, width, width) / 2 + offset
                     y = y_convert_to_cartesian(y, 0, height, height) / 2 + offset
@@ -362,7 +365,7 @@ def get_gcode_file(infill_motion_paths, border_width_motion_paths, width, height
                         f.write(f'G1 X{x} Y{y} F9000\n')
                         f.write(f'G1 F1200\n')
                     else:
-                        prev_path = border_width_motion_paths[i - 1]
+                        prev_path = border_motion_paths[i - 1]
                         x_prev, y_prev = prev_path[0]
                         x_prev = x_convert_to_cartesian(x_prev, 0, width, width) / 2 + offset
                         y_prev = y_convert_to_cartesian(y_prev, 0, height, height) / 2 + offset
@@ -578,9 +581,9 @@ def tests():
     ctx.fill((255, 255, 255))
 
     # Common part
-    infill_img_path = 'images/7_infill.jpg'
+    infill_img_path = 'images/small/6_small_infill.jpg'
     infill_img = cv2.imread(infill_img_path, cv2.IMREAD_GRAYSCALE)
-    border_img_path = 'images/7_border.jpg'
+    border_img_path = 'images/small/6_small_border.jpg'
     border_img = cv2.imread(border_img_path, cv2.IMREAD_GRAYSCALE)
     height, width = infill_img.shape
     cell_size = 5
@@ -619,7 +622,18 @@ def tests():
 
     # GCODE
     file_name = re.search(r'\d+_small', infill_img_path).group(0)
-    # get_gcode_file(motion_paths, border_motion_paths, width, height, f'img_{file_name}')
+    print_options = {
+        'layer_height': 0.2,
+        'flow_modifier': 1,
+        'nozzle_diameter': 0.4,
+        'filament_diameter': 1.75,
+        'offset': 20,
+        'layers_count': 50,
+        'width': width,
+        'height': height,
+        'file_name': f'img_{file_name}'
+    }
+    get_gcode_file(motion_paths, border_motion_paths, print_options)
 
     print('debug')
 
