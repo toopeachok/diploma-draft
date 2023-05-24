@@ -692,7 +692,6 @@ G1 E3.2 F2400
 M204 P800
 ; stop printing object helper_disk.stl id:0 copy 0
 ; my code start
-;TYPE:Solid infill
 
 ; my code end
 G1 E-2.24 F4200
