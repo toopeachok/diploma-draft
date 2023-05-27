@@ -570,10 +570,42 @@ def test_for_get_paths_for_border_cells(ctx, paths_for_border, cell_size=5):
                     pygame.draw.line(ctx, (0, 0, 0), start, stop)
 
 
+def get_trajectories_for_cells(ctx, color_values_map, bitmap, cell_size=5):
+    std_paths = standard_library_of_paths.paths
+    for i in range(len(color_values_map)):
+        for j in range(len(color_values_map)):
+            if bitmap[i][j] == 1:
+                mean_color = color_values_map[i][j]
+                density = 1 - (mean_color / 255)
+                std_path_key = tuple(std_paths.keys())[0]
+                for key in std_paths.keys():
+                    if abs((key / 25) - density) < abs((std_path_key / 25) - density):
+                        std_path_key = key
+
+                std_path = std_paths[std_path_key]
+
+                small_cell_size = cell_size // 5
+                coefficient = 0
+                x_shift = j * cell_size
+                y_shift = i * cell_size
+
+                for k in range(len(std_path) - 1):
+                    from_ = (
+                        std_path[k][1] * small_cell_size - coefficient + x_shift,
+                        std_path[k][0] * small_cell_size - coefficient + y_shift
+                    )
+                    to = (
+                        std_path[k + 1][1] * small_cell_size - coefficient + x_shift,
+                        std_path[k + 1][0] * small_cell_size - coefficient + y_shift
+                    )
+                    color = (0, 0, 0)
+                    pygame.draw.line(ctx, color, from_, to, 2)
+
+
 def tests():
     # Pygame Settings
     pygame.init()
-    canvas = pygame.display.set_mode((500, 500))
+    canvas = pygame.display.set_mode((300, 300))
     pygame.display.set_caption('Canvas. Tests')
     ctx = canvas
     ctx.set_alpha(None)
@@ -581,9 +613,9 @@ def tests():
     ctx.fill((255, 255, 255))
 
     # Common part
-    infill_img_path = 'images/small/6_small_infill.jpg'
+    infill_img_path = 'images/5_infill.jpg'
     infill_img = cv2.imread(infill_img_path, cv2.IMREAD_GRAYSCALE)
-    border_img_path = 'images/small/6_small_border.jpg'
+    border_img_path = 'images/5_border.jpg'
     border_img = cv2.imread(border_img_path, cv2.IMREAD_GRAYSCALE)
     height, width = infill_img.shape
     cell_size = 5
@@ -597,11 +629,12 @@ def tests():
     path_clusters, _ = get_path_clusters(bitmap)
     motion_paths = get_motion_paths(path_clusters, color_values_map, cell_size)
     # Infill Tests
+    # get_trajectories_for_cells(ctx, color_values_map, bitmap, cell_size)
     # test_for_get_color_values_map(ctx, color_values_map, cell_size)
     # test_for_get_bitmap(ctx, bitmap, cell_size)
     # test_for_get_bitmap_with_segments_info(ctx, bitmap_with_segments_info, cell_size)
     # test_for_get_path_clusters(ctx, path_clusters, cell_size)
-    test_for_get_motion_paths(ctx, motion_paths, (0, 0, 0))
+    # test_for_get_motion_paths(ctx, motion_paths, (0, 0, 0))
 
     # Border
     # draw_border(ctx, border_img, cell_size)
@@ -618,10 +651,12 @@ def tests():
     # test_for_get_path_clusters(ctx, border_path_clusters)
     # test_for_get_extended_bitmap(ctx, extended_bitmap, cell_size)
     # test_for_get_paths_for_border_cells(ctx, paths_for_border_cells)
-    test_for_get_motion_paths(ctx, border_motion_paths, (0, 0, 0))
+    # test_for_get_motion_paths(ctx, border_motion_paths, (0, 0, 0))
 
     # GCODE
-    file_name = re.search(r'\d+_small', infill_img_path).group(0)
+    file_name = ''
+    # file_name = re.search(r'\d+_small', infill_img_path).group(0)
+
     print_options = {
         'layer_height': 0.2,
         'flow_modifier': 1,
@@ -633,7 +668,7 @@ def tests():
         'height': height,
         'file_name': f'img_{file_name}'
     }
-    get_gcode_file(motion_paths, border_motion_paths, print_options)
+    # get_gcode_file(motion_paths, border_motion_paths, print_options)
 
     print('debug')
 
