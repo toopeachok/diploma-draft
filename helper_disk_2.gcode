@@ -590,7 +590,6 @@ G1 X17.968 Y164.429 E.052
 M204 P1000
 ; stop printing object helper_disk.stl id:0 copy 0
 ; my code start
-
 ; my code end
 G1 E-2.24 F4200
 ;WIPE_START
