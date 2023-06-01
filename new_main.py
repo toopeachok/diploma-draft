@@ -123,6 +123,56 @@ def get_path_for_traversing_grid(bitmap):
     return path
 
 
+def get_printing_path(bitmap, color_values_map, cell_size=5):
+    printing_path = []
+    std_paths = standard_library_of_paths.paths
+
+    path_for_traversing_grid = get_path_for_traversing_grid(bitmap)
+    for continuous_path_segment in path_for_traversing_grid:
+        direction = 1 if continuous_path_segment[1] < continuous_path_segment[2] else -1
+        printing_path_for_cps = []
+
+        for i in range(continuous_path_segment[1], continuous_path_segment[2] + direction, direction):
+            y = continuous_path_segment[0]
+            x = i
+            mean_color = color_values_map[y][x]
+            density = 1 - mean_color / 255
+            std_path_key = tuple(std_paths.keys())[0]
+            for key in std_paths.keys():
+                if abs(key / 25 - density) < abs(std_path_key / 25 - density):
+                    std_path_key = key
+
+            std_path = std_paths[std_path_key]
+
+            small_cell_size = cell_size // 5
+            coefficient = 1
+            x_shift = x * cell_size
+            y_shift = y * cell_size
+
+            cell_points = []
+            for j in range(len(std_path)):
+                point_to_move = (
+                    std_path[j][1] * small_cell_size - coefficient + x_shift,
+                    std_path[j][0] * small_cell_size - coefficient + y_shift
+                )
+                cell_points.append(point_to_move)
+
+            cell_points = cell_points[::direction]
+            printing_path_for_cps = printing_path_for_cps + cell_points
+
+        printing_path.append(printing_path_for_cps)
+
+    return printing_path
+
+
+def test_for_get_printing_path(screen, printing_path):
+    for continuous_path in printing_path:
+        for i in range(len(continuous_path) - 1):
+            from_ = continuous_path[i]
+            to = continuous_path[i + 1]
+            pygame.draw.line(screen, (0, 0, 0), from_, to, 1)
+
+
 def x_convert_to_cartesian(x, x_min, x_max, width):
     return x_min + ((x_max - x_min) * x / width)
 
@@ -247,27 +297,29 @@ def tests():
     screen.fill((255, 255, 255))
 
     # Common part
-    infill_img_path = 'images/9.jpg'
+    infill_img_path = 'images/6_infill.jpg'
     infill_img = cv2.imread(infill_img_path, cv2.IMREAD_GRAYSCALE)
     border_img_path = 'images/5_border.jpg'
     border_img = cv2.imread(border_img_path, cv2.IMREAD_GRAYSCALE)
     height, width = infill_img.shape
     cell_size = 5
 
-    img = pygame.image.load(infill_img_path)
-    screen.blit(img, (0, 0))
+    # img = pygame.image.load(infill_img_path)
+    # screen.blit(img, (0, 0))
 
     # Infill
-    threshold = 254
+    threshold = 250
     color_values_map = get_color_values_map(infill_img, cell_size)
     bitmap = get_bitmap(color_values_map, threshold)
     segments_list = get_segments_list(bitmap)
     path_for_traversing_grid = get_path_for_traversing_grid(bitmap)
+    printing_path = get_printing_path(bitmap, color_values_map)
 
     # Infill Tests
     # get_trajectories_for_cells(screen, color_values_map, bitmap, cell_size)
-    test_for_get_color_values_map(screen, color_values_map, cell_size)
+    # test_for_get_color_values_map(screen, color_values_map, cell_size)
     # test_for_get_bitmap(screen, bitmap, cell_size)
+    test_for_get_printing_path(screen, printing_path)
 
     # GCODE
     file_name = ''
