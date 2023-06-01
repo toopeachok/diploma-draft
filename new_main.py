@@ -2,7 +2,6 @@ import math
 import sys
 import cv2
 import pygame
-import numpy as np
 import re
 
 import standard_library_of_paths
@@ -165,14 +164,7 @@ def get_printing_path(bitmap, color_values_map, cell_size=5):
     return printing_path
 
 
-def test_for_get_printing_path(screen, printing_path):
-    for continuous_path in printing_path:
-        for i in range(len(continuous_path) - 1):
-            from_ = continuous_path[i]
-            to = continuous_path[i + 1]
-            pygame.draw.line(screen, (0, 0, 0), from_, to, 1)
-
-
+# G-code
 def x_convert_to_cartesian(x, x_min, x_max, width):
     return x_min + ((x_max - x_min) * x / width)
 
@@ -181,7 +173,7 @@ def y_convert_to_cartesian(y, y_min, y_max, height):
     return y_max - ((y_max - y_min) * y / height)
 
 
-def get_gcode_file(infill_motion_paths, border_motion_paths, print_options):
+def get_gcode_file(print_options, infill_printing_path=(), border_printing_path=()):
     layer_height = print_options['layer_height']
     flow_modifier = print_options['flow_modifier']
     nozzle_diameter = print_options['nozzle_diameter']
@@ -199,47 +191,43 @@ def get_gcode_file(infill_motion_paths, border_motion_paths, print_options):
             if j > 1:
                 f.write(f'G0 Z{z}\n')
 
-            if len(infill_motion_paths) > 0:
+            if len(infill_printing_path) > 0:
                 f.write(';TYPE:Solid infill\n')
-                for i in range(len(infill_motion_paths)):
-                    path = infill_motion_paths[i]
-                    x, y = path[0]
-                    x = x_convert_to_cartesian(x, 0, width, width) / 2 + offset
-                    y = y_convert_to_cartesian(y, 0, height, height) / 2 + offset
-                    action_type = path[1]
-                    if action_type == 'move':
-                        f.write(f'G1 X{x} Y{y} F9000\n')
-                        f.write(f'G1 F1200\n')
-                    else:
-                        prev_path = infill_motion_paths[i - 1]
-                        x_prev, y_prev = prev_path[0]
-                        x_prev = x_convert_to_cartesian(x_prev, 0, width, width) / 2 + offset
-                        y_prev = y_convert_to_cartesian(y_prev, 0, height, height) / 2 + offset
-                        dist = math.dist((x, y), (x_prev, y_prev))
-                        E = (4 * layer_height * flow_modifier * nozzle_diameter * dist) / (
-                                math.pi * filament_diameter * filament_diameter)
-                        f.write(f'G1 X{x} Y{y} E{E}\n')
+                for continuous_path in infill_printing_path:
+                    for idx, point in enumerate(continuous_path):
+                        point = (x_convert_to_cartesian(point[0], 0, width, width) / 2 + offset,
+                                 y_convert_to_cartesian(point[1], 0, height, height) / 2 + offset)
 
-            if len(border_motion_paths) > 0:
+                        if idx == 0:
+                            f.write(f'G1 X{point[0]} Y{point[1]} F9000\n')
+                            f.write(f'G1 F1200\n')
+                        else:
+                            prev_point = continuous_path[idx - 1]
+                            prev_point = (x_convert_to_cartesian(prev_point[0], 0, width, width) / 2 + offset,
+                                          y_convert_to_cartesian(prev_point[1], 0, height, height) / 2 + offset)
+                            dist = math.dist(point, prev_point)
+                            E = (4 * layer_height * flow_modifier * nozzle_diameter * dist) / (
+                                    math.pi * filament_diameter * filament_diameter)
+                            f.write(f'G1 X{point[0]} Y{point[1]} E{E}\n')
+
+            if len(border_printing_path) > 0:
                 f.write(';TYPE:Perimeter\n')
-                for i in range(len(border_motion_paths)):
-                    path = border_motion_paths[i]
-                    x, y = path[0]
-                    x = x_convert_to_cartesian(x, 0, width, width) / 2 + offset
-                    y = y_convert_to_cartesian(y, 0, height, height) / 2 + offset
-                    action_type = path[1]
-                    if action_type == 'move':
-                        f.write(f'G1 X{x} Y{y} F9000\n')
-                        f.write(f'G1 F1200\n')
-                    else:
-                        prev_path = border_motion_paths[i - 1]
-                        x_prev, y_prev = prev_path[0]
-                        x_prev = x_convert_to_cartesian(x_prev, 0, width, width) / 2 + offset
-                        y_prev = y_convert_to_cartesian(y_prev, 0, height, height) / 2 + offset
-                        dist = math.dist((x, y), (x_prev, y_prev))
-                        E = (4 * layer_height * flow_modifier * nozzle_diameter * dist) / (
-                                math.pi * filament_diameter * filament_diameter)
-                        f.write(f'G1 X{x} Y{y} E{E}\n')
+                for continuous_path in border_printing_path:
+                    for idx, point in enumerate(continuous_path):
+                        point = (x_convert_to_cartesian(point[0], 0, width, width) / 2 + offset,
+                                 y_convert_to_cartesian(point[1], 0, height, height) / 2 + offset)
+
+                        if idx == 0:
+                            f.write(f'G1 X{point[0]} Y{point[1]} F9000\n')
+                            f.write(f'G1 F1200\n')
+                        else:
+                            prev_point = continuous_path[idx - 1]
+                            prev_point = (x_convert_to_cartesian(prev_point[0], 0, width, width) / 2 + offset,
+                                          y_convert_to_cartesian(prev_point[1], 0, height, height) / 2 + offset)
+                            dist = math.dist(point, prev_point)
+                            E = (4 * layer_height * flow_modifier * nozzle_diameter * dist) / (
+                                    math.pi * filament_diameter * filament_diameter)
+                            f.write(f'G1 X{point[0]} Y{point[1]} E{E}\n')
 
 
 # Test functions
@@ -257,7 +245,7 @@ def test_for_get_bitmap(screen, bitmap, cell_size=5):
             pygame.draw.rect(screen, color, (j * cell_size, i * cell_size, cell_size, cell_size))
 
 
-def get_trajectories_for_cells(screen, color_values_map, bitmap, cell_size=5):
+def draw_trajectories_for_cells(screen, color_values_map, bitmap, cell_size=5):
     std_paths = standard_library_of_paths.paths
     for i in range(len(color_values_map)):
         for j in range(len(color_values_map)):
@@ -272,7 +260,7 @@ def get_trajectories_for_cells(screen, color_values_map, bitmap, cell_size=5):
                 std_path = std_paths[std_path_key]
 
                 small_cell_size = cell_size // 5
-                coefficient = 0
+                coefficient = 1
                 x_shift = j * cell_size
                 y_shift = i * cell_size
 
@@ -286,7 +274,15 @@ def get_trajectories_for_cells(screen, color_values_map, bitmap, cell_size=5):
                         std_path[k + 1][0] * small_cell_size - coefficient + y_shift
                     )
                     color = (0, 0, 0)
-                    pygame.draw.line(screen, color, from_, to, 2)
+                    pygame.draw.line(screen, color, from_, to, 1)
+
+
+def test_for_get_printing_path(screen, printing_path):
+    for continuous_path in printing_path:
+        for i in range(len(continuous_path) - 1):
+            from_ = continuous_path[i]
+            to = continuous_path[i + 1]
+            pygame.draw.line(screen, (0, 0, 0), from_, to, 1)
 
 
 def tests():
@@ -297,9 +293,9 @@ def tests():
     screen.fill((255, 255, 255))
 
     # Common part
-    infill_img_path = 'images/6_infill.jpg'
+    infill_img_path = 'images/12.jpg'
     infill_img = cv2.imread(infill_img_path, cv2.IMREAD_GRAYSCALE)
-    border_img_path = 'images/5_border.jpg'
+    border_img_path = 'images/6_border.jpg'
     border_img = cv2.imread(border_img_path, cv2.IMREAD_GRAYSCALE)
     height, width = infill_img.shape
     cell_size = 5
@@ -308,22 +304,20 @@ def tests():
     # screen.blit(img, (0, 0))
 
     # Infill
-    threshold = 250
+    threshold = 254
     color_values_map = get_color_values_map(infill_img, cell_size)
     bitmap = get_bitmap(color_values_map, threshold)
-    segments_list = get_segments_list(bitmap)
-    path_for_traversing_grid = get_path_for_traversing_grid(bitmap)
     printing_path = get_printing_path(bitmap, color_values_map)
 
     # Infill Tests
-    # get_trajectories_for_cells(screen, color_values_map, bitmap, cell_size)
+    # draw_trajectories_for_cells(screen, color_values_map, bitmap, cell_size)
     # test_for_get_color_values_map(screen, color_values_map, cell_size)
     # test_for_get_bitmap(screen, bitmap, cell_size)
     test_for_get_printing_path(screen, printing_path)
 
     # GCODE
-    file_name = ''
-    # file_name = re.search(r'\d+_small', infill_img_path).group(0)
+    # file_name = ''
+    file_name = re.search(r'\d+', infill_img_path).group(0)
 
     print_options = {
         'layer_height': 0.2,
@@ -334,9 +328,9 @@ def tests():
         'layers_count': 50,
         'width': width,
         'height': height,
-        'file_name': f'img_{file_name}'
+        'file_name': f'new_img_{file_name}'
     }
-    # get_gcode_file([], [], print_options)
+    # get_gcode_file(print_options, printing_path)
 
     print('debug')
 
