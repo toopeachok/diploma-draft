@@ -314,7 +314,7 @@ def y_convert_to_cartesian(y, y_min, y_max, height):
     return y_max - ((y_max - y_min) * y / height)
 
 
-def get_gcode_file(infill_motion_paths, border_motion_paths, print_options):
+def get_gcode_file(print_options, infill_motion_paths=(), border_motion_paths=()):
     layer_height = print_options['layer_height']
     flow_modifier = print_options['flow_modifier']
     nozzle_diameter = print_options['nozzle_diameter']
@@ -613,7 +613,7 @@ def tests():
     ctx.fill((255, 255, 255))
 
     # Common part
-    infill_img_path = 'images/5_infill.jpg'
+    infill_img_path = 'images/12.jpg'
     infill_img = cv2.imread(infill_img_path, cv2.IMREAD_GRAYSCALE)
     border_img_path = 'images/5_border.jpg'
     border_img = cv2.imread(border_img_path, cv2.IMREAD_GRAYSCALE)
@@ -634,7 +634,7 @@ def tests():
     # test_for_get_bitmap(ctx, bitmap, cell_size)
     # test_for_get_bitmap_with_segments_info(ctx, bitmap_with_segments_info, cell_size)
     # test_for_get_path_clusters(ctx, path_clusters, cell_size)
-    # test_for_get_motion_paths(ctx, motion_paths, (0, 0, 0))
+    test_for_get_motion_paths(ctx, motion_paths, (0, 0, 0))
 
     # Border
     # draw_border(ctx, border_img, cell_size)
@@ -654,8 +654,8 @@ def tests():
     # test_for_get_motion_paths(ctx, border_motion_paths, (0, 0, 0))
 
     # GCODE
-    file_name = ''
-    # file_name = re.search(r'\d+_small', infill_img_path).group(0)
+    # file_name = ''
+    file_name = re.search(r'\d+', infill_img_path).group(0)
 
     print_options = {
         'layer_height': 0.2,
@@ -666,9 +666,10 @@ def tests():
         'layers_count': 50,
         'width': width,
         'height': height,
-        'file_name': f'img_{file_name}'
+        'file_name': f'old_img_{file_name}'
     }
-    # get_gcode_file(motion_paths, border_motion_paths, print_options)
+    # get_gcode_file(print_options, motion_paths)
+    # get_gcode_file(print_options, motion_paths, border_motion_paths)
 
     print('debug')
 
