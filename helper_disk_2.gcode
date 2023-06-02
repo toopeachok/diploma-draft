@@ -100,10 +100,8 @@ M83 ; use relative distances for extrusion
 M900 K0.2 ; Filament gcode LA 1.5
 ; ; Filament gcode LA 1.0
 M107
-;LAYER_CHANGE
 ;Z:0.2
 ;HEIGHT:0.2
-;BEFORE_LAYER_CHANGE
 G92 E0.0
 ;0.2
 
@@ -112,7 +110,6 @@ M73 P17 R0
 G1 E-3.2 F4200
 M73 P28 R0
 G1 Z.2 F720
-;AFTER_LAYER_CHANGE
 ;0.2
 G1 Z.4
 G1 X19.56 Y148.394 F9000
