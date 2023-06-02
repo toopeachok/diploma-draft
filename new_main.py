@@ -328,8 +328,11 @@ def get_gcode_file(print_options, infill_printing_path=(), border_printing_path=
         if j > 1:
             file_lines.append(f'G0 Z{z}\n')
 
+        file_lines.append(f';LAYER_CHANGE\n')
+        file_lines.append(f';{z}\n')
+
         if len(infill_printing_path) > 0:
-            file_lines.append(';TYPE:Solid infill\n')
+            file_lines.append(';TYPE:Internal infill\n')
             for continuous_path in infill_printing_path:
                 for idx, point in enumerate(continuous_path):
                     point = (x_convert_to_cartesian(point[0], 0, width, width) / 2 + offset,
@@ -449,9 +452,9 @@ def tests():
     screen.fill((255, 255, 255))
 
     # Common part
-    infill_img_path = 'images/6_infill.jpg'
+    infill_img_path = 'images/8_infill.jpg'
     infill_img = cv2.imread(infill_img_path, cv2.IMREAD_GRAYSCALE)
-    border_img_path = 'images/6_border.jpg'
+    border_img_path = 'images/8_border.jpg'
     border_img = cv2.imread(border_img_path, cv2.IMREAD_GRAYSCALE)
     height, width = infill_img.shape
     cell_size = 5
@@ -490,7 +493,7 @@ def tests():
         'nozzle_diameter': 0.4,
         'filament_diameter': 1.75,
         'offset': 20,
-        'layers_count': 50,
+        'layers_count': 5,
         'width': width,
         'height': height,
         'file_name': f'results/new_img_{file_name}{"thick" if perimeter_type == 1 else "thin"}',
