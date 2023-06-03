@@ -363,9 +363,9 @@ def tests():
     screen.fill((255, 255, 255))
 
     # Common part
-    infill_img_path = 'images/12_infill.jpg'
+    infill_img_path = 'images/13_infill.jpg'
     infill_img = cv2.imread(infill_img_path, cv2.IMREAD_GRAYSCALE)
-    border_img_path = 'images/12.csv'
+    border_img_path = 'images/13.csv'
     height, width = infill_img.shape
     cell_size = 5
 
@@ -392,15 +392,14 @@ def tests():
 
     # GCODE
     file_name = ''
-    # file_name = re.search(r'\d+_small', infill_img_path).group(0)
-    file_name = re.search(r'\d+', infill_img_path).group(0)
+    file_name = re.search(r'\d+(_small)?', infill_img_path).group(0)
     print_options = {
         'layer_height': 0.2,
         'flow_modifier': 1,
         'nozzle_diameter': 0.4,
         'filament_diameter': 1.75,
         'offset': 20,
-        'layers_count': 5,
+        'layers_count': 10,
         'width': width,
         'height': height,
         'file_name': f'results/img_{file_name}',
