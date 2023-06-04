@@ -8,6 +8,31 @@ import re
 import standard_library_of_paths
 
 
+# Utils
+def get_vector_size(vector):
+    return math.sqrt(vector[0] * vector[0] + vector[1] * vector[1])
+
+
+def x_convert_to_cartesian(x, x_min, x_max, width):
+    return x_min + ((x_max - x_min) * x / width)
+
+
+def y_convert_to_cartesian(y, y_min, y_max, height):
+    return y_max - ((y_max - y_min) * y / height)
+
+
+def convert_pixel_points_to_cartesian(pixel_points, width, height, offset):
+    points = []
+    for pixel_point in pixel_points:
+        x, y = pixel_point[0], pixel_point[1]
+        point = (x_convert_to_cartesian(x, 0, width, width) / 2 + offset,
+                 y_convert_to_cartesian(y, 0, height, height) / 2 + offset)
+        points.append(point)
+
+    return points
+
+
+# Infill Part
 def get_color_values_map(img, cell_size=5):
     height, width = img.shape
     if height != width:
@@ -168,7 +193,31 @@ def get_printing_path(bitmap, color_values_map=None, cell_size=5):
     return printing_path
 
 
-# Border
+def get_infill_points_for_printing(infill_printing_path, print_options):
+    infill_points = []
+
+    offset = print_options['offset']
+    width = print_options['width']
+    height = print_options['height']
+
+    for continuous_path in infill_printing_path:
+        for idx, point in enumerate(continuous_path):
+            point = (x_convert_to_cartesian(point[0], 0, width, width) / 2 + offset,
+                     y_convert_to_cartesian(point[1], 0, height, height) / 2 + offset)
+            action_type = 'extrude'
+            is_point_near_border = False
+
+            if idx == 0:
+                action_type = 'move'
+            if (idx == 0) or (idx == (len(continuous_path) - 1)):
+                is_point_near_border = True
+
+            infill_points.append((point, action_type, is_point_near_border))
+
+    return infill_points
+
+
+# Border Part
 def get_border_sides(border_points):
     border_sides = []
     for i in range(len(border_points) - 1):
@@ -199,10 +248,6 @@ def get_border_sides_normals(border_sides_vectors):
         normals.append(normal)
 
     return normals
-
-
-def get_vector_size(vector):
-    return math.sqrt(vector[0] * vector[0] + vector[1] * vector[1])
 
 
 def shift_border_sides_by_normal(border_sides, border_sides_vectors, shift_coefficient):
@@ -249,25 +294,6 @@ def shit_border_points_by_normal(border_points, shift_coefficient):
 
 
 # G-code
-def x_convert_to_cartesian(x, x_min, x_max, width):
-    return x_min + ((x_max - x_min) * x / width)
-
-
-def y_convert_to_cartesian(y, y_min, y_max, height):
-    return y_max - ((y_max - y_min) * y / height)
-
-
-def convert_pixel_points_to_cartesian(pixel_points, width, height, offset):
-    points = []
-    for pixel_point in pixel_points:
-        x, y = pixel_point[0], pixel_point[1]
-        point = (x_convert_to_cartesian(x, 0, width, width) / 2 + offset,
-                 y_convert_to_cartesian(y, 0, height, height) / 2 + offset)
-        points.append(point)
-
-    return points
-
-
 def get_gcode_file(print_options, infill_printing_path=(), border_points=()):
     layer_height = print_options['layer_height']
     flow_modifier = print_options['flow_modifier']
@@ -288,38 +314,25 @@ def get_gcode_file(print_options, infill_printing_path=(), border_points=()):
     elif len(border_points) > 0:
         file_name = file_name + '_border'
 
+    # Helper File
     with open(file_helper_name) as f:
         file_helper_lines = f.readlines()
-
     my_code_start_line_index = file_helper_lines.index('; my code start\n')
     my_code_end_line_index = my_code_start_line_index + 1
-
     for i in range(my_code_end_line_index):
         file_lines.append(file_helper_lines[i])
 
+    # Prepare points for printing
     border_points = convert_pixel_points_to_cartesian(border_points, width, height, offset)
     shifted_border_points = shit_border_points_by_normal(border_points, print_options['nozzle_diameter'])
+    infill_points = get_infill_points_for_printing(infill_printing_path, print_options)
 
-    infill_points = []
-    for continuous_path in infill_printing_path:
-        for idx, point in enumerate(continuous_path):
-            point = (x_convert_to_cartesian(point[0], 0, width, width) / 2 + offset,
-                     y_convert_to_cartesian(point[1], 0, height, height) / 2 + offset)
-            action_type = 'extrude'
-            is_point_near_border = False
-
-            if idx == 0:
-                action_type = 'move'
-            if (idx == 0) or (idx == (len(continuous_path) - 1)):
-                is_point_near_border = True
-
-            infill_points.append((point, action_type, is_point_near_border))
-
+    # Get G-code
     file_lines.append(f'G1 F1200\n')
     for j in range(1, (layers_count + 1)):
         z = layer_height * j
-        if j > 1:
-            file_lines.append(f'G0 Z{z}\n')
+        # if j > 1:
+        #     file_lines.append(f'G0 Z{z}\n')
 
         file_lines.append(f';LAYER_CHANGE\n')
         file_lines.append(f';{z}\n')
@@ -395,9 +408,11 @@ def get_gcode_file(print_options, infill_printing_path=(), border_points=()):
                             math.pi * filament_diameter * filament_diameter)
                     file_lines.append(f'G1 X{point[0]} Y{point[1]} E{E}\n')
 
+    # Helper File
     for i in range(my_code_end_line_index, len(file_helper_lines)):
         file_lines.append(file_helper_lines[i])
 
+    # Result File
     with open(f'{file_name}_LC{layers_count}_FW{flow_modifier}.gcode', 'w', encoding='utf-8') as f:
         for line in file_lines:
             f.write(line)
