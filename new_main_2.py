@@ -93,8 +93,9 @@ def get_segments_list(bitmap):
 
 
 def next_segment_with_distance_between_segments(first_segment, second_segment):
-    if (first_segment[0] != second_segment[0]) and (first_segment[1] < first_segment[2]):
-        second_segment = (second_segment[0], second_segment[2], second_segment[1])
+    if first_segment[0] != second_segment[0]:
+        if abs(second_segment[2] - first_segment[2]) < abs(second_segment[2] - first_segment[1]):
+            second_segment = (second_segment[0], second_segment[2], second_segment[1])
 
     return second_segment, ((first_segment[0] - second_segment[0]) ** 2 + (
             first_segment[2] - second_segment[1]) ** 2)
@@ -479,9 +480,9 @@ def tests():
     screen.fill((255, 255, 255))
 
     # Common part
-    infill_img_path = 'images/12_infill.jpg'
+    infill_img_path = 'images/13.jpg'
     infill_img = cv2.imread(infill_img_path, cv2.IMREAD_GRAYSCALE)
-    border_img_path = 'images/12.csv'
+    border_img_path = 'images/13.csv'
     height, width = infill_img.shape
     cell_size = 5
 
