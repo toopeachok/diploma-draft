@@ -331,9 +331,7 @@ def get_gcode_file(print_options, infill_printing_path=(), border_points=()):
     file_lines.append(f'G1 F1200\n')
     for j in range(1, (layers_count + 1)):
         z = layer_height * j
-        # if j > 1:
-        #     file_lines.append(f'G0 Z{z}\n')
-
+        file_lines.append(f'G0 Z{z}\n')
         file_lines.append(f';LAYER_CHANGE\n')
         file_lines.append(f';{z}\n')
 
@@ -481,9 +479,9 @@ def tests():
     screen.fill((255, 255, 255))
 
     # Common part
-    infill_img_path = 'images/13_infill.jpg'
+    infill_img_path = 'images/12_infill.jpg'
     infill_img = cv2.imread(infill_img_path, cv2.IMREAD_GRAYSCALE)
-    border_img_path = 'images/13.csv'
+    border_img_path = 'images/12.csv'
     height, width = infill_img.shape
     cell_size = 5
 
@@ -494,19 +492,22 @@ def tests():
     threshold = 254
     color_values_map = get_color_values_map(infill_img, cell_size)
     bitmap = get_bitmap(color_values_map, threshold)
-    printing_path = get_printing_path(bitmap, color_values_map)
+    infill_printing_path = get_printing_path(bitmap, color_values_map, cell_size)
 
     # Infill Tests
     # draw_trajectories_for_cells(screen, color_values_map, bitmap, cell_size)
     # test_for_get_color_values_map(screen, color_values_map, cell_size)
     # test_for_get_bitmap(screen, bitmap, cell_size)
-    # test_for_get_printing_path(screen, printing_path)
+    # test_for_get_printing_path(screen, infill_printing_path)
 
     # Border
     with open(border_img_path) as f:
         svg_border_points = list(csv.reader(f, delimiter=','))[1:]
 
+    # Close the contour
     svg_border_points.append(svg_border_points[0])
+
+    # Convert to float
     for i in range(len(svg_border_points)):
         point = svg_border_points[i]
         svg_border_points[i] = (float(point[0]), float(point[1]))
@@ -526,7 +527,7 @@ def tests():
         'file_name': f'results/img_{file_name}',
         'file_helper_name': 'helper_disk_2.gcode'
     }
-    get_gcode_file(print_options, printing_path, svg_border_points)
+    get_gcode_file(print_options, infill_printing_path, svg_border_points)
 
     print('debug')
 
