@@ -168,6 +168,86 @@ def get_printing_path(bitmap, color_values_map=None, cell_size=5):
     return printing_path
 
 
+# Border
+def get_border_sides(border_points):
+    border_sides = []
+    for i in range(len(border_points) - 1):
+        point_1 = border_points[i]
+        point_2 = border_points[i + 1]
+        border_sides.append((point_1, point_2))
+
+    return border_sides
+
+
+def get_border_sides_vectors(border_sides):
+    border_sides_vectors = []
+    for border_side in border_sides:
+        point_1, point_2 = border_side[0], border_side[1]
+        border_side_vector = (point_2[0] - point_1[0], point_2[1] - point_1[1])
+        border_sides_vectors.append(border_side_vector)
+
+    return border_sides_vectors
+
+
+def get_border_sides_normals(border_sides_vectors):
+    normals = []
+
+    for border_side_vector in border_sides_vectors:
+        x = border_side_vector[0]
+        y = border_side_vector[1]
+        normal = (y, -x)
+        normals.append(normal)
+
+    return normals
+
+
+def get_vector_size(vector):
+    return math.sqrt(vector[0] * vector[0] + vector[1] * vector[1])
+
+
+def shift_border_sides_by_normal(border_sides, border_sides_vectors, shift_coefficient):
+    shifted_border_sides = []
+
+    normals = get_border_sides_normals(border_sides_vectors)
+
+    for i in range(0, len(border_sides)):
+        border_side = border_sides[i]
+        point_1, point_2 = border_side
+        normal = normals[i]
+
+        shifted_point_1 = (point_1[0] + shift_coefficient * normal[0] / get_vector_size(normal),
+                           point_1[1] + shift_coefficient * normal[1] / get_vector_size(normal))
+        shifted_point_2 = (point_2[0] + shift_coefficient * normal[0] / get_vector_size(normal),
+                           point_2[1] + shift_coefficient * normal[1] / get_vector_size(normal))
+
+        shifted_border_sides.append((shifted_point_1, shifted_point_2))
+
+    return shifted_border_sides
+
+
+def shit_border_points_by_normal(border_points, shift_coefficient):
+    shifted_border_points = []
+    border_sides = get_border_sides(border_points)
+    border_sides_vectors = get_border_sides_vectors(border_sides)
+
+    cross_product_sum = 0
+    for i in range(len(border_sides_vectors) - 1):
+        side_vector = border_sides_vectors[i]
+        next_side_vector = border_sides_vectors[i + 1]
+        cross_product_sum += side_vector[0] * next_side_vector[1] - side_vector[1] * next_side_vector[0]
+
+    orientation = 1 if cross_product_sum >= 0 else -1
+    shift_coefficient = shift_coefficient * orientation
+
+    shifted_border_sides = shift_border_sides_by_normal(border_sides, border_sides_vectors, shift_coefficient)
+    for shifted_border_side in shifted_border_sides:
+        point_1, point_2 = shifted_border_side
+        shifted_border_points.append(point_1)
+        shifted_border_points.append(point_2)
+
+    return shifted_border_points
+
+
 # G-code
 def x_convert_to_cartesian(x, x_min, x_max, width):
     return x_min + ((x_max - x_min) * x / width)
@@ -180,7 +260,7 @@ def y_convert_to_cartesian(y, y_min, y_max, height):
 def convert_pixel_points_to_cartesian(pixel_points, width, height, offset):
     points = []
     for pixel_point in pixel_points:
-        x, y = float(pixel_point[0]), float(pixel_point[1])
+        x, y = pixel_point[0], pixel_point[1]
         point = (x_convert_to_cartesian(x, 0, width, width) / 2 + offset,
                  y_convert_to_cartesian(y, 0, height, height) / 2 + offset)
         points.append(point)
@@ -218,8 +298,9 @@ def get_gcode_file(print_options, infill_printing_path=(), border_points=()):
         file_lines.append(file_helper_lines[i])
 
     border_points = convert_pixel_points_to_cartesian(border_points, width, height, offset)
-    infill_points = []
+    shifted_border_points = shit_border_points_by_normal(border_points, print_options['nozzle_diameter'])
 
+    infill_points = []
     for continuous_path in infill_printing_path:
         for idx, point in enumerate(continuous_path):
             point = (x_convert_to_cartesian(point[0], 0, width, width) / 2 + offset,
@@ -242,6 +323,28 @@ def get_gcode_file(print_options, infill_printing_path=(), border_points=()):
 
         file_lines.append(f';LAYER_CHANGE\n')
         file_lines.append(f';{z}\n')
+
+        # Outer Border
+        if len(shifted_border_points) > 0:
+            file_lines.append(';TYPE:External perimeter\n')
+
+            for idx, point in enumerate(shifted_border_points):
+                if idx == 0:
+                    file_lines.append(f'G1 X{point[0]} Y{point[1]} F9000\n')
+                    file_lines.append(f'G1 F1200\n')
+                else:
+                    prev_point = shifted_border_points[idx - 1]
+                    dist = math.dist(point, prev_point)
+                    E = (4 * layer_height * flow_modifier * nozzle_diameter * dist) / (
+                            math.pi * filament_diameter * filament_diameter)
+                    file_lines.append(f'G1 X{point[0]} Y{point[1]} E{E}\n')
+
+            first_border_point = shifted_border_points[0]
+            last_border_point = shifted_border_points[len(shifted_border_points) - 1]
+            dist = math.dist(first_border_point, last_border_point)
+            E = (4 * layer_height * flow_modifier * nozzle_diameter * dist) / (
+                    math.pi * filament_diameter * filament_diameter)
+            file_lines.append(f'G1 X{first_border_point[0]} Y{first_border_point[1]} E{E}\n')
 
         # Border
         if len(border_points) > 0:
@@ -388,7 +491,10 @@ def tests():
     with open(border_img_path) as f:
         svg_border_points = list(csv.reader(f, delimiter=','))[1:]
 
-    # Border Tests
+    svg_border_points.append(svg_border_points[0])
+    for i in range(len(svg_border_points)):
+        point = svg_border_points[i]
+        svg_border_points[i] = (float(point[0]), float(point[1]))
 
     # GCODE
     file_name = ''
