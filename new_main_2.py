@@ -515,7 +515,7 @@ def tests():
 
     # GCODE
     file_name = ''
-    file_name = re.search(r'\d+(_small)?', infill_img_path).group(0)
+    file_name = re.search(r'\d+_?(small|\d+)?', infill_img_path).group(0)
     print_options = {
         'layer_height': 0.2,
         'flow_modifier': 1,
